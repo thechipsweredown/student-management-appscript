@@ -1033,6 +1033,7 @@ function renderDashboard() {
 
 function renderBirthdayPanel() {
   var today = new Date();
+  today.setHours(0, 0, 0, 0);
   var todayMD = today.getMonth() * 100 + today.getDate();
 
   var upcoming = [];
