@@ -357,6 +357,10 @@ function addStudent(d) {
     var eid = genId('enrollments', 'EN');
     getSheet('enrollments').appendRow([eid, id, d.classId, d.termId || '', new Date(), '', d.status || 'Đang học', '']);
   }
+  if (d.parentId) {
+    var spSheet = getSheet('student_parents');
+    if (spSheet) spSheet.appendRow([id, d.parentId, 'Phụ huynh']);
+  }
   return { success: true, id: id };
 }
 
@@ -578,4 +582,109 @@ function deleteTerm(id) {
     }
   }
   return { success: false };
+}
+
+// ── Teachers ──────────────────────────────────────────────────
+function getTeachers() {
+  return parseSheet('teachers').map(function(t) {
+    return { id: String(t.id||''), name: String(t.name||''), subject: String(t.subject||''), phone: String(t.phone||''), email: String(t.email||'') };
+  });
+}
+
+function saveTeacher(d) {
+  var sheet = getSheet('teachers');
+  if (d.id) {
+    var data = sheet.getDataRange().getValues();
+    var hdr  = data[0].map(function(h) { return String(h).trim(); });
+    var idCol = hdr.indexOf('id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][idCol]) === String(d.id)) {
+        sheet.getRange(i+1, 1, 1, 5).setValues([[d.id, d.name, d.subject||'', d.phone||'', d.email||'']]);
+        return { success: true };
+      }
+    }
+  }
+  var id = genId('teachers', 'TCH');
+  sheet.appendRow([id, d.name, d.subject||'', d.phone||'', d.email||'']);
+  return { success: true, id: id };
+}
+
+function deleteTeacher(id) {
+  var sheet = getSheet('teachers');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idCol = hdr.indexOf('id');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(id)) { sheet.deleteRow(i+1); return { success: true }; }
+  }
+  return { success: false };
+}
+
+// ── Parents ───────────────────────────────────────────────────
+function getParents() {
+  return parseSheet('parents').map(function(p) {
+    return { id: String(p.id||''), name: String(p.name||''), phone: String(p.phone||''), email: String(p.email||''), address: String(p.address||'') };
+  });
+}
+
+function saveParent(d) {
+  var sheet = getSheet('parents');
+  if (d.id) {
+    var data = sheet.getDataRange().getValues();
+    var hdr  = data[0].map(function(h) { return String(h).trim(); });
+    var idCol = hdr.indexOf('id');
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][idCol]) === String(d.id)) {
+        sheet.getRange(i+1, 1, 1, 5).setValues([[d.id, d.name, d.phone||'', d.email||'', d.address||'']]);
+        return { success: true };
+      }
+    }
+  }
+  var id = genId('parents', 'PAR');
+  sheet.appendRow([id, d.name, d.phone||'', d.email||'', d.address||'']);
+  return { success: true, id: id };
+}
+
+function deleteParent(id) {
+  var sheet = getSheet('parents');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idCol = hdr.indexOf('id');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(id)) { sheet.deleteRow(i+1); return { success: true }; }
+  }
+  return { success: false };
+}
+
+function linkStudentParent(d) {
+  var sheet = getSheet('student_parents');
+  var data  = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(d.studentId) && String(data[i][1]) === String(d.parentId)) return { success: true };
+  }
+  sheet.appendRow([d.studentId, d.parentId, d.relationship||'Phụ huynh']);
+  return { success: true };
+}
+
+function unlinkStudentParent(studentId, parentId) {
+  var sheet = getSheet('student_parents');
+  var data  = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(studentId) && String(data[i][1]) === String(parentId)) {
+      sheet.deleteRow(i+1); return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+function getStudentParents(studentId) {
+  var all     = parseSheet('student_parents');
+  var parents = parseSheet('parents');
+  var pMap    = {};
+  parents.forEach(function(p) { if (p.id) pMap[String(p.id)] = p; });
+  return all.filter(function(r) { return String(r.student_id||'') === String(studentId); })
+    .map(function(r) {
+      var p = pMap[String(r.parent_id||'')] || {};
+      return { parentId: String(r.parent_id||''), name: String(p.name||''), phone: String(p.phone||''), relationship: String(r.relationship||'') };
+    });
 }
