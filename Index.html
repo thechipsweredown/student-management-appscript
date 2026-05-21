@@ -539,7 +539,7 @@ function applyData(data) {
   APP.stats       = data.stats       || {};
   if (data._timing) {
     var t = data._timing;
-    console.group('%c[Panda] Load ' + t.total + 'ms (read ' + t.read + 'ms · compute ' + t.compute + 'ms · client +' + (Date.now() - window._loadStart - t.total) + 'ms)', 'color:#e07b39;font-weight:bold');
+    console.group('%c[Panda] Load ' + t.total + 'ms  server=' + t.total + 'ms  client+=' + (Date.now() - window._loadStart - t.total) + 'ms', 'color:#e07b39;font-weight:bold');
     if (t.steps && t.steps.length) {
       var prev = 0;
       t.steps.forEach(function(s) {

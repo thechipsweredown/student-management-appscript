@@ -18,11 +18,48 @@ function getSheet(name) {
 
 function fmtDate(d) {
   if (d instanceof Date) return Utilities.formatDate(d, TIMEZONE, 'dd/MM/yyyy');
+  // Date serial từ Sheets API batchGet (UNFORMATTED_VALUE)
+  if (typeof d === 'number' && d > 1000) {
+    var dt = new Date(Math.round((d - 25569) * 86400000));
+    return Utilities.formatDate(dt, TIMEZONE, 'dd/MM/yyyy');
+  }
   if (d && String(d).match(/^\d{4}-\d{2}-\d{2}/)) {
     var p = String(d).split('T')[0].split('-');
     return p[2] + '/' + p[1] + '/' + p[0];
   }
   return d ? String(d).substring(0, 10) : '';
+}
+
+// Đọc nhiều sheet trong 1 API call (cần bật Google Sheets API advanced service)
+function batchReadSheets(names) {
+  var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+  var resp = Sheets.Spreadsheets.Values.batchGet(ssId, {
+    ranges: names,
+    majorDimension: 'ROWS',
+    valueRenderOption: 'UNFORMATTED_VALUE',
+    dateTimeRenderOption: 'SERIAL_NUMBER'
+  });
+  var map = {};
+  (resp.valueRanges || []).forEach(function(vr, i) {
+    map[names[i]] = vr.values || [];
+  });
+  return map;
+}
+
+// Parse raw 2D array thành array of objects dùng row 0 làm header
+function parseFromValues(rows) {
+  if (!rows || rows.length < 2) return [];
+  var headers = rows[0].map(function(h) { return String(h || '').trim(); });
+  var result = [];
+  for (var i = 1; i < rows.length; i++) {
+    var row = rows[i];
+    if (row[0] === '' && row[1] === '') continue;
+    if (row[0] === undefined && row[1] === undefined) continue;
+    var obj = { _row: i + 1 };
+    headers.forEach(function(h, ci) { if (h) obj[h] = ci < row.length ? row[ci] : ''; });
+    result.push(obj);
+  }
+  return result;
 }
 
 // Parse sheet thành array of objects, dùng row 1 làm header
@@ -79,14 +116,20 @@ function getAllData(termId) {
   var T = { start: Date.now(), steps: [] };
   function mark(label) { T.steps.push({ label: label, ms: Date.now() - T.start }); }
 
-  var rawStudents = parseSheet('students');   mark('read:students('   + rawStudents.length + ')');
-  var rawEnroll   = parseSheet('enrollments'); mark('read:enrollments(' + rawEnroll.length + ')');
-  var rawClasses  = parseSheet('classes');     mark('read:classes('    + rawClasses.length  + ')');
-  var rawTeachers = parseSheet('teachers');    mark('read:teachers('   + rawTeachers.length + ')');
-  var rawBills    = parseSheet('monthly_bills'); mark('read:bills('    + rawBills.length    + ')');
-  var rawPays     = parseSheet('payments');    mark('read:payments('   + rawPays.length     + ')');
-  var rawLop      = getSheet('DS Lớp').getDataRange().getValues(); mark('read:DS_Lop');
+  var SHEET_NAMES = ['students','enrollments','classes','teachers','monthly_bills','payments','DS Lớp','terms'];
+  var raw = batchReadSheets(SHEET_NAMES);
+  mark('batchRead:all_sheets');
   T.read = Date.now();
+
+  var rawStudents = parseFromValues(raw['students']);      mark('parse:students('   + rawStudents.length + ')');
+  var rawEnroll   = parseFromValues(raw['enrollments']);   mark('parse:enrollments(' + rawEnroll.length   + ')');
+  var rawClasses  = parseFromValues(raw['classes']);       mark('parse:classes('    + rawClasses.length   + ')');
+  var rawTeachers = parseFromValues(raw['teachers']);      mark('parse:teachers('   + rawTeachers.length  + ')');
+  var rawBills    = parseFromValues(raw['monthly_bills']); mark('parse:bills('      + rawBills.length     + ')');
+  var rawPays     = parseFromValues(raw['payments']);      mark('parse:payments('   + rawPays.length      + ')');
+  var rawLop      = raw['DS Lớp'];
+  var rawTermsArr = parseFromValues(raw['terms']);         mark('parse:terms('      + rawTermsArr.length  + ')');
+  mark('parse:done');
 
   // Lọc enrollment theo kỳ nếu có termId
   if (termId) {
@@ -265,7 +308,9 @@ function getAllData(termId) {
     payments   : payments,
     classes    : classes,
     classGroups: classGroups,
-    terms      : getTerms(),
+    terms      : rawTermsArr.map(function(t) {
+      return { id: String(t.id||''), school_year: String(t.school_year||''), term_name: String(t.term_name||''), start_date: fmtDate(t.start_date), end_date: fmtDate(t.end_date) };
+    }),
     stats: {
       totalStudents : students.length,
       activeStudents: activeStudents,
