@@ -225,7 +225,8 @@ tr:hover td { background: var(--gray-50); }
             <option value="Học thử">📕 Học thử</option>
           </select>
         </div>
-        <div class="form-group"><label>Lớp học</label><select class="form-control" id="s_classId"></select></div>
+        <div class="form-group" id="s_classRow"><label>Lớp học ban đầu</label><select class="form-control" id="s_classId"></select></div>
+        <div class="form-group" id="s_classesRow" style="display:none"><label>Lớp đang học</label><div id="s_classesDisplay" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px 0"></div></div>
         <div class="form-group"><label>Phụ huynh</label><select class="form-control" id="s_parentId"><option value="">-- Chưa chọn --</option></select></div>
         <div class="form-group span2"><label>Địa chỉ</label><input class="form-control" id="s_address"></div>
       </div>
@@ -368,11 +369,18 @@ tr:hover td { background: var(--gray-50); }
               <option value="Bảo lưu">🔵 Bảo lưu</option>
               <option value="Học thử">📕 Học thử</option>
             </select>
+            <select class="filter-select" id="filterClassCount" onchange="renderStudentTable()">
+              <option value="">Tất cả số lớp</option>
+              <option value="0">Chưa có lớp</option>
+              <option value="1">1 lớp</option>
+              <option value="2">2 lớp</option>
+              <option value="3">3+ lớp</option>
+            </select>
           </div>
           <div style="overflow-x:auto">
             <table><thead><tr>
               <th>Mã HS</th><th>Họ và tên</th><th>Trạng thái</th>
-              <th>Lớp</th><th>Giáo viên</th><th>Nợ học phí</th><th></th>
+              <th>Lớp</th><th>Nợ học phí</th><th></th>
             </tr></thead><tbody id="studentTbody"></tbody></table>
           </div>
           <div class="table-pagination" id="studentPaging"></div>
@@ -1065,14 +1073,21 @@ function loadAttChart() {
 //  STUDENTS TABLE
 // ═══════════════════════════════════════════════
 function getFilteredStudents() {
-  var q = document.getElementById('studentSearch').value.toLowerCase();
+  var q   = document.getElementById('studentSearch').value.toLowerCase();
   var lop = document.getElementById('filterLop').value;
   var st  = document.getElementById('filterStatus').value;
+  var cc  = document.getElementById('filterClassCount').value;
   return APP.students.filter(function(s) {
     var matchQ  = !q  || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
     var matchL  = !lop || s.classes.some(function(c) { return c.className === lop; });
     var matchSt = !st  || s.status === st;
-    return matchQ && matchL && matchSt;
+    var n = s.classes.length;
+    var matchCC = !cc
+      || (cc === '0' && n === 0)
+      || (cc === '1' && n === 1)
+      || (cc === '2' && n === 2)
+      || (cc === '3' && n >= 3);
+    return matchQ && matchL && matchSt && matchCC;
   });
 }
 
@@ -1084,9 +1099,9 @@ function renderStudentTable() {
   var slice = data.slice(start, start + PAGE.pageSize);
 
   var tbody = slice.map(function(s) {
-    var classBadges = s.classes.slice(0, 2).map(function(c) {
-      return '<span class="badge badge-blue" style="margin-right:2px">' + esc(c.className) + '</span>';
-    }).join('') + (s.classes.length > 2 ? '<span class="badge badge-gray">+' + (s.classes.length - 2) + '</span>' : '');
+    var classBadges = s.classes.map(function(c) {
+      return '<span class="badge badge-blue" style="margin-right:2px;cursor:pointer" onclick=\'showView("classes");setTimeout(function(){openClassDetail("' + esc(c.className) + '")},80)\'>' + esc(c.className) + '</span>';
+    }).join('') || '<span style="color:var(--gray-400);font-size:12px">—</span>';
     var debtCell = s.totalDebt > 0
       ? '<span style="color:var(--danger);font-weight:700">' + fmtMoney(s.totalDebt) + '</span>'
       : '<span style="color:var(--gray-400);font-size:12px">—</span>';
@@ -1094,8 +1109,7 @@ function renderStudentTable() {
       '<td><span style="font-family:monospace;color:var(--primary);font-size:12px">' + esc(s.id) + '</span></td>' +
       '<td><div style="display:flex;align-items:center;gap:8px">' + avatarCircle(s, 30) + '<strong>' + esc(s.name) + '</strong></div></td>' +
       '<td>' + statusBadge(s.status) + '</td>' +
-      '<td>' + (classBadges || '—') + '</td>' +
-      '<td style="color:var(--gray-600);font-size:12px">' + esc(s.primaryTeacher || '—') + '</td>' +
+      '<td>' + classBadges + '</td>' +
       '<td>' + debtCell + '</td>' +
       '<td style="white-space:nowrap">' +
         '<button class="act-btn edit" onclick=\'openEditStudent(' + JSON.stringify(s) + ')\'>✏️</button>' +
@@ -2092,6 +2106,8 @@ function openAddStudent() {
   document.getElementById('s_gender').value  = '';
   document.getElementById('s_status').value  = 'Đang học';
   document.getElementById('s_classId').value = '';
+  document.getElementById('s_classRow').style.display    = '';
+  document.getElementById('s_classesRow').style.display  = 'none';
   var fi = document.getElementById('s_avatarFile');
   fi._hasNew = false; fi.value = '';
   document.getElementById('s_avatarStatus').textContent = '';
@@ -2113,7 +2129,13 @@ function openEditStudent(s) {
     var p = s.dob.split('/');
     document.getElementById('s_dob').value = p[2] + '-' + p[1] + '-' + p[0];
   } else document.getElementById('s_dob').value = '';
-  document.getElementById('s_classId').value = (s.classes[0] && s.classes[0].classId) || '';
+  document.getElementById('s_classRow').style.display   = 'none';
+  document.getElementById('s_classesRow').style.display = '';
+  var badges = s.classes.length
+    ? s.classes.map(function(c) { return '<span class="badge badge-blue">' + esc(c.className) + '</span>'; }).join('')
+    : '<span style="font-size:12px;color:var(--gray-400)">Chưa có lớp</span>';
+  document.getElementById('s_classesDisplay').innerHTML = badges +
+    '<a href="#" onclick="showView(\'classes\');closeModal(\'modalStudent\');return false" style="font-size:11px;color:var(--primary);margin-left:6px">Quản lý →</a>';
   var fi = document.getElementById('s_avatarFile');
   fi._hasNew = false; fi._base64 = ''; fi._mimeType = '';
   document.getElementById('s_avatarStatus').textContent = '';
