@@ -272,6 +272,11 @@ tr:hover td { background: var(--gray-50); }
       <div class="nav-item" onclick="showView('classes')" data-view="classes"><span class="nav-icon">🏫</span> Lớp học</div>
       <div class="nav-item" onclick="showView('teachers')" data-view="teachers"><span class="nav-icon">👨‍🏫</span> Giáo viên</div>
       <div class="nav-item" onclick="showView('parents')" data-view="parents"><span class="nav-icon">👪</span> Phụ huynh</div>
+      <div class="nav-section">Hoạt động</div>
+      <div class="nav-item" onclick="showView('attendance')" data-view="attendance"><span class="nav-icon">📋</span> Điểm Danh</div>
+      <div class="nav-item" onclick="showView('schedule')" data-view="schedule"><span class="nav-icon">📅</span> Lịch Học</div>
+      <div class="nav-section">Báo cáo</div>
+      <div class="nav-item" onclick="showView('attStats')" data-view="attStats"><span class="nav-icon">📊</span> Thống Kê</div>
       <div class="nav-item" id="navSettings" onclick="showView('settings')" data-view="settings" style="display:none"><span class="nav-icon">⚙️</span> Cài đặt</div>
     </div>
     <div class="sidebar-footer">
@@ -431,6 +436,47 @@ tr:hover td { background: var(--gray-50); }
             <div style="padding:12px 16px;font-size:12px;color:var(--gray-400);border-top:1px solid var(--gray-100)">
               Sau khi thêm kỳ mới, chọn kỳ ở thanh trên cùng để lọc dữ liệu theo kỳ đó.
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance -->
+      <div id="view-attendance" class="view">
+        <div class="table-card" style="margin-bottom:14px">
+          <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
+            <select class="filter-select" id="att_classId" style="min-width:160px"><option value="">-- Chọn lớp --</option></select>
+            <input type="date" class="filter-select" id="att_date">
+            <button class="header-btn btn-primary" onclick="loadAttendanceSheet()">Tải danh sách</button>
+            <span id="att_note" style="font-size:12px;color:var(--gray-400)"></span>
+          </div>
+        </div>
+        <div id="att_body"></div>
+      </div>
+
+      <!-- Schedule -->
+      <div id="view-schedule" class="view">
+        <div class="table-card">
+          <div class="table-toolbar">
+            <span style="font-size:13px;font-weight:600">Lịch sử buổi học</span>
+            <select class="filter-select" id="sch_classId" onchange="loadSchedule()" style="min-width:160px"><option value="">Tất cả lớp</option></select>
+          </div>
+          <div style="overflow-x:auto">
+            <table><thead><tr><th>Ngày</th><th>Lớp</th><th>Trạng thái</th><th>Có mặt</th><th>Vắng</th><th>Đi muộn</th></tr></thead>
+            <tbody id="scheduleTbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Stats -->
+      <div id="view-attStats" class="view">
+        <div class="table-card">
+          <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:600">Thống kê chuyên cần</span>
+            <select class="filter-select" id="stat_classId" onchange="loadAttStats()" style="min-width:160px;margin-left:auto"><option value="">Tất cả lớp</option></select>
+          </div>
+          <div style="overflow-x:auto">
+            <table><thead><tr><th>Học sinh</th><th style="text-align:center">Tổng buổi</th><th style="text-align:center;color:var(--success)">Có mặt</th><th style="text-align:center;color:var(--warning)">Đi muộn</th><th style="text-align:center;color:var(--danger)">Vắng</th><th style="text-align:center">Tỉ lệ</th></tr></thead>
+            <tbody id="statsTbody"></tbody></table>
           </div>
         </div>
       </div>
@@ -699,6 +745,13 @@ function initUI() {
   document.getElementById('studentDatalist').innerHTML = APP.students.map(function(s) {
     return '<option value="' + esc(s.name) + '" data-id="' + esc(s.id) + '">';
   }).join('');
+
+  // Class dropdowns for schedule & stats
+  var classOptsById = '<option value="">Tất cả lớp</option>' + APP.classes.map(function(c) {
+    return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+  }).join('');
+  document.getElementById('sch_classId').innerHTML  = classOptsById;
+  document.getElementById('stat_classId').innerHTML = classOptsById;
 }
 
 // ═══════════════════════════════════════════════
@@ -708,10 +761,13 @@ var VIEWS = {
   dashboard: { title: 'Bảng điều khiển', actions: '' },
   students : { title: 'Học sinh', actions: '<button class="header-btn btn-primary" onclick="openAddStudent()">➕ Thêm học sinh</button>' },
   payments : { title: 'Học phí', actions: '<button class="header-btn btn-primary" onclick="openAddPayment()">➕ Ghi nhận thanh toán</button>' },
-  classes  : { title: 'Lớp học', actions: '' },
-  teachers : { title: 'Giáo viên', actions: '<button class="header-btn btn-primary" onclick="openAddTeacher()">➕ Thêm giáo viên</button>' },
-  parents  : { title: 'Phụ huynh', actions: '<button class="header-btn btn-primary" onclick="openAddParent()">➕ Thêm phụ huynh</button>' },
-  settings : { title: 'Cài đặt', actions: '' }
+  classes    : { title: 'Lớp học', actions: '' },
+  teachers   : { title: 'Giáo viên', actions: '<button class="header-btn btn-primary" onclick="openAddTeacher()">➕ Thêm giáo viên</button>' },
+  parents    : { title: 'Phụ huynh', actions: '<button class="header-btn btn-primary" onclick="openAddParent()">➕ Thêm phụ huynh</button>' },
+  attendance : { title: 'Điểm Danh', actions: '' },
+  schedule   : { title: 'Lịch Học', actions: '' },
+  attStats   : { title: 'Thống Kê Chuyên Cần', actions: '' },
+  settings   : { title: 'Cài đặt', actions: '' }
 };
 
 function showView(name) {
@@ -725,9 +781,12 @@ function showView(name) {
   if (name === 'students') { PAGE.students = 1; renderStudentTable(); }
   if (name === 'payments') { PAGE.payments = 1; renderPaymentTable(); }
   if (name === 'classes')  renderClassGrid();
-  if (name === 'teachers') loadTeachers();
-  if (name === 'parents')  loadParents();
-  if (name === 'settings') renderSettings();
+  if (name === 'teachers')   loadTeachers();
+  if (name === 'parents')    loadParents();
+  if (name === 'attendance') initAttendanceView();
+  if (name === 'schedule')   loadSchedule();
+  if (name === 'attStats')   loadAttStats();
+  if (name === 'settings')   renderSettings();
 }
 
 // ═══════════════════════════════════════════════
@@ -1354,6 +1413,164 @@ function deleteParent(id) {
     .withSuccessHandler(function(r) { if (r.success) { loadParents(); toast('Đã xoá', 'success'); } })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .deleteParent(id);
+}
+
+// ═══════════════════════════════════════════════
+//  ATTENDANCE
+// ═══════════════════════════════════════════════
+var ATT_STATE = { sessionId: null, records: {} }; // student_id -> status
+
+function initAttendanceView() {
+  var sel = document.getElementById('att_classId');
+  sel.innerHTML = '<option value="">-- Chọn lớp --</option>' + APP.classes.map(function(c) {
+    return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+  }).join('');
+  var today = new Date();
+  document.getElementById('att_date').value = today.toISOString().split('T')[0];
+  document.getElementById('att_body').innerHTML = '';
+  document.getElementById('att_note').textContent = '';
+  ATT_STATE.sessionId = null; ATT_STATE.records = {};
+}
+
+function loadAttendanceSheet() {
+  var classId = document.getElementById('att_classId').value;
+  var date    = document.getElementById('att_date').value;
+  if (!classId) { toast('Chọn lớp trước', 'error'); return; }
+  if (!date)    { toast('Chọn ngày trước', 'error'); return; }
+
+  document.getElementById('att_note').textContent = 'Đang tải...';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      ATT_STATE.sessionId = r.sessionId;
+      ATT_STATE.records   = {};
+      r.attendance.forEach(function(a) { ATT_STATE.records[a.student_id] = a.status; });
+
+      var students = APP.students.filter(function(s) {
+        return s.classes.some(function(c) { return c.classId === classId; });
+      }).sort(function(a,b) { return a.name.localeCompare(b.name,'vi'); });
+
+      if (!students.length) {
+        document.getElementById('att_body').innerHTML = '<p style="color:var(--gray-400);padding:16px">Không có học sinh trong lớp này.</p>';
+        document.getElementById('att_note').textContent = '';
+        return;
+      }
+
+      // Default unrecorded students to "Có mặt"
+      students.forEach(function(s) { if (!ATT_STATE.records[s.id]) ATT_STATE.records[s.id] = 'Có mặt'; });
+
+      document.getElementById('att_note').textContent = r.sessionId + (r.created ? ' (buổi mới)' : ' (đã có)');
+      renderAttendanceTable(students);
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); document.getElementById('att_note').textContent = ''; })
+    .getOrCreateSession(classId, date);
+}
+
+function renderAttendanceTable(students) {
+  var statuses = ['Có mặt', 'Đi muộn', 'Vắng'];
+  var colors   = { 'Có mặt': 'var(--success)', 'Đi muộn': 'var(--warning,#f59e0b)', 'Vắng': 'var(--danger)' };
+
+  var rows = students.map(function(s) {
+    var cur = ATT_STATE.records[s.id] || 'Có mặt';
+    var btns = statuses.map(function(st) {
+      var active = cur === st;
+      var col    = colors[st];
+      return '<button onclick="setStatus(\'' + esc(s.id) + '\',\'' + st + '\')" ' +
+        'style="padding:5px 12px;border-radius:20px;border:1.5px solid ' + col + ';font-size:12px;font-weight:600;cursor:pointer;' +
+        'background:' + (active ? col : '#fff') + ';color:' + (active ? '#fff' : col) + '" ' +
+        'id="btn_' + esc(s.id) + '_' + st.replace(/ /g,'_') + '">' + st + '</button>';
+    }).join(' ');
+    return '<tr id="arow_' + esc(s.id) + '">' +
+      '<td><div style="display:flex;align-items:center;gap:8px">' + avatarCircle(s,28) + '<span>' + esc(s.name) + '</span></div></td>' +
+      '<td style="white-space:nowrap">' + btns + '</td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('att_body').innerHTML =
+    '<div class="table-card">' +
+      '<table><thead><tr><th>Học sinh</th><th>Trạng thái</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>' +
+      '<div style="padding:14px 16px;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end;gap:10px">' +
+        '<button class="header-btn btn-outline" onclick="markAll(\'Có mặt\')">✓ Tất cả có mặt</button>' +
+        '<button class="header-btn btn-primary" onclick="submitAttendance()">💾 Lưu điểm danh</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function setStatus(studentId, status) {
+  ATT_STATE.records[studentId] = status;
+  var statuses = ['Có mặt', 'Đi muộn', 'Vắng'];
+  var colors   = { 'Có mặt': 'var(--success)', 'Đi muộn': 'var(--warning,#f59e0b)', 'Vắng': 'var(--danger)' };
+  statuses.forEach(function(st) {
+    var btn = document.getElementById('btn_' + studentId + '_' + st.replace(/ /g,'_'));
+    if (!btn) return;
+    var col    = colors[st];
+    var active = st === status;
+    btn.style.background = active ? col : '#fff';
+    btn.style.color      = active ? '#fff' : col;
+  });
+}
+
+function markAll(status) {
+  Object.keys(ATT_STATE.records).forEach(function(sid) { setStatus(sid, status); });
+}
+
+function submitAttendance() {
+  if (!ATT_STATE.sessionId) { toast('Chưa tải danh sách', 'error'); return; }
+  var records = Object.keys(ATT_STATE.records).map(function(sid) {
+    return { student_id: sid, status: ATT_STATE.records[sid], note: '' };
+  });
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) toast('Đã lưu điểm danh ✓', 'success');
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .saveAttendance(ATT_STATE.sessionId, records);
+}
+
+// ── Schedule ─────────────────────────────────────────────────
+function loadSchedule() {
+  var classId = document.getElementById('sch_classId').value;
+  google.script.run
+    .withSuccessHandler(function(sessions) {
+      var classMap = {};
+      APP.classes.forEach(function(c) { classMap[c.id] = c.name; });
+      var tbody = sessions.map(function(s) {
+        return '<tr>' +
+          '<td style="font-weight:600">' + esc(s.date) + '</td>' +
+          '<td>' + esc(classMap[s.class_id] || s.class_id) + '</td>' +
+          '<td>' + (s.status ? '<span class="badge badge-blue">' + esc(s.status) + '</span>' : '—') + '</td>' +
+          '<td style="text-align:center;color:var(--success);font-weight:600">' + (s.present||0) + '</td>' +
+          '<td style="text-align:center;color:var(--danger)">' + (s.absent||0) + '</td>' +
+          '<td style="text-align:center;color:var(--warning,#f59e0b)">' + (s.late||0) + '</td>' +
+        '</tr>';
+      }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Chưa có buổi học nào</td></tr>';
+      document.getElementById('scheduleTbody').innerHTML = tbody;
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .getSessions(classId || '');
+}
+
+// ── Attendance Stats ──────────────────────────────────────────
+function loadAttStats() {
+  var classId = document.getElementById('stat_classId').value;
+  google.script.run
+    .withSuccessHandler(function(stats) {
+      var tbody = stats.map(function(s) {
+        var rate = s.total > 0 ? Math.round(s.present / s.total * 100) : 0;
+        var rateColor = rate >= 80 ? 'var(--success)' : rate >= 60 ? 'var(--warning,#f59e0b)' : 'var(--danger)';
+        return '<tr>' +
+          '<td><strong>' + esc(s.name) + '</strong><div style="font-size:11px;color:var(--gray-400)">' + esc(s.studentId) + '</div></td>' +
+          '<td style="text-align:center">' + s.total + '</td>' +
+          '<td style="text-align:center;color:var(--success);font-weight:600">' + s.present + '</td>' +
+          '<td style="text-align:center;color:var(--warning,#f59e0b);font-weight:600">' + s.late + '</td>' +
+          '<td style="text-align:center;color:var(--danger);font-weight:600">' + s.absent + '</td>' +
+          '<td style="text-align:center;font-weight:700;color:' + rateColor + '">' + rate + '%</td>' +
+        '</tr>';
+      }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Chưa có dữ liệu điểm danh</td></tr>';
+      document.getElementById('statsTbody').innerHTML = tbody;
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .getAttendanceStats(classId || '', APP.currentTermId || '');
 }
 
 // ═══════════════════════════════════════════════

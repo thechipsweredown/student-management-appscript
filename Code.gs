@@ -584,6 +584,137 @@ function deleteTerm(id) {
   return { success: false };
 }
 
+// ── Sessions & Attendance ─────────────────────────────────────
+function getSessions(classId) {
+  var raw = parseSheet('sessions');
+  if (classId) raw = raw.filter(function(s) { return String(s.class_id||'') === String(classId); });
+
+  // Build attendance counts per session
+  var att = parseSheet('attendance');
+  var counts = {};
+  att.forEach(function(a) {
+    var sid = String(a.session_id||'');
+    if (!counts[sid]) counts[sid] = { present:0, absent:0, late:0 };
+    var st = String(a.status||'');
+    if (st === 'Có mặt') counts[sid].present++;
+    else if (st === 'Vắng')    counts[sid].absent++;
+    else if (st === 'Đi muộn') counts[sid].late++;
+  });
+
+  return raw.map(function(s) {
+    var c = counts[String(s.id||'')] || { present:0, absent:0, late:0 };
+    return { id: String(s.id||''), class_id: String(s.class_id||''), date: fmtDate(s.date), status: String(s.status||''), note: String(s.note||''), present: c.present, absent: c.absent, late: c.late };
+  }).sort(function(a, b) { return a.date < b.date ? 1 : -1; });
+}
+
+function getOrCreateSession(classId, dateStr) {
+  // dateStr: YYYY-MM-DD
+  var sheet = getSheet('sessions');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var cidC  = hdr.indexOf('class_id');
+  var dateC = hdr.indexOf('date');
+  var idC   = hdr.indexOf('id');
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][cidC]) !== String(classId)) continue;
+    var d = data[i][dateC];
+    var rowISO = d instanceof Date ? Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd') : String(d).substring(0, 10);
+    if (rowISO === dateStr) {
+      var sid = String(data[i][idC]);
+      return { sessionId: sid, created: false, attendance: getAttendanceForSession(sid) };
+    }
+  }
+  var sid = genId('sessions', 'SES');
+  sheet.appendRow([sid, classId, new Date(dateStr + 'T00:00:00'), '', '', 'Đã học', '']);
+  return { sessionId: sid, created: true, attendance: [] };
+}
+
+function getAttendanceForSession(sessionId) {
+  return parseSheet('attendance').filter(function(a) {
+    return String(a.session_id||'') === String(sessionId);
+  }).map(function(a) {
+    return { student_id: String(a.student_id||''), status: String(a.status||''), note: String(a.note||'') };
+  });
+}
+
+function saveAttendance(sessionId, records) {
+  // records: [{student_id, status, note}]
+  var sheet = getSheet('attendance');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idC   = hdr.indexOf('id');
+  var sesC  = hdr.indexOf('session_id');
+  var stuC  = hdr.indexOf('student_id');
+  var stC   = hdr.indexOf('status');
+  var ntC   = hdr.indexOf('note');
+
+  var maxN = 0;
+  data.slice(1).forEach(function(r) { var m = String(r[idC]).match(/^ATT(\d+)/); if (m) maxN = Math.max(maxN, parseInt(m[1])); });
+
+  var existingRow = {};
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sesC]) === String(sessionId)) existingRow[String(data[i][stuC])] = i + 1;
+  }
+
+  var toAdd = [];
+  records.forEach(function(rec) {
+    var stuId = String(rec.student_id);
+    if (existingRow[stuId]) {
+      sheet.getRange(existingRow[stuId], stC + 1).setValue(rec.status || '');
+      sheet.getRange(existingRow[stuId], ntC + 1).setValue(rec.note  || '');
+    } else {
+      maxN++;
+      toAdd.push(['ATT' + String(maxN).padStart(4,'0'), sessionId, stuId, rec.status||'', rec.note||'']);
+    }
+  });
+  if (toAdd.length) sheet.getRange(sheet.getLastRow()+1, 1, toAdd.length, 5).setValues(toAdd);
+  return { success: true };
+}
+
+function getAttendanceStats(classId, termId) {
+  var sessions   = parseSheet('sessions');
+  var attendance = parseSheet('attendance');
+  var students   = parseSheet('students');
+  var enrollments= parseSheet('enrollments');
+
+  // Valid class IDs for filter
+  var validClasses = {};
+  if (classId) { validClasses[classId] = true; }
+  else if (termId) {
+    enrollments.filter(function(e) { return String(e.term_id||'') === String(termId); })
+      .forEach(function(e) { validClasses[String(e.class_id||'')] = true; });
+  }
+
+  var validSessions = {};
+  sessions.forEach(function(s) {
+    var cid = String(s.class_id||'');
+    if (!classId && !termId) validSessions[String(s.id||'')] = cid;
+    else if (validClasses[cid]) validSessions[String(s.id||'')] = cid;
+  });
+
+  var stuMap = {};
+  students.forEach(function(s) { if (s.id) stuMap[String(s.id)] = String(s.name||''); });
+
+  var stats = {};
+  attendance.forEach(function(a) {
+    var sesId = String(a.session_id||'');
+    if (!validSessions[sesId]) return;
+    var stuId = String(a.student_id||'');
+    if (!stats[stuId]) stats[stuId] = { total:0, present:0, absent:0, late:0 };
+    stats[stuId].total++;
+    var st = String(a.status||'');
+    if (st === 'Có mặt') stats[stuId].present++;
+    else if (st === 'Vắng')    stats[stuId].absent++;
+    else if (st === 'Đi muộn') stats[stuId].late++;
+  });
+
+  return Object.keys(stats).map(function(stuId) {
+    var s = stats[stuId];
+    return { studentId: stuId, name: stuMap[stuId]||stuId, total: s.total, present: s.present, absent: s.absent, late: s.late };
+  }).sort(function(a,b) { return b.absent - a.absent; });
+}
+
 // ── Teachers ──────────────────────────────────────────────────
 // Sheet columns: id, name, phone, email, subject_ids, status
 function getTeachers() {
