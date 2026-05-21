@@ -1905,8 +1905,14 @@ function printReceipt(pay, stu) {
   // Capitalise first letter
   words = words.charAt(0).toUpperCase() + words.slice(1);
 
-  var now = new Date();
-  var yr  = now.getFullYear();
+  // Parse ngày từ pay.date (dd/MM/yyyy) hoặc dùng ngày hiện tại
+  var payDay = '......', payMonth = '......', payYear = new Date().getFullYear();
+  if (pay.date && pay.date.match(/\d{2}\/\d{2}\/\d{4}/)) {
+    var dp = pay.date.split('/');
+    payDay   = dp[0];
+    payMonth = dp[1];
+    payYear  = dp[2];
+  }
 
   var html =
     '<div class="pt-wrap">' +
@@ -1954,7 +1960,7 @@ function printReceipt(pay, stu) {
           '<span class="pt-line pt-words">' + esc(words) + '</span>' +
         '</div>' +
         // ── Date + sigs ──
-        '<div class="pt-date">Việt An, Ngày ...... Tháng ...... Năm ' + yr + '</div>' +
+        '<div class="pt-date">Việt An, Ngày ' + payDay + ' Tháng ' + payMonth + ' Năm ' + payYear + '</div>' +
         '<div class="pt-sigs">' +
           '<div><strong>Người nộp tiền</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
           '<div><strong>Người lập phiếu</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
