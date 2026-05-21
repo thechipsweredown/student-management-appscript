@@ -227,26 +227,31 @@ function getAllData(termId) {
   mark('compute:students(' + students.length + ')');
 
   // ── Parse payments ────────────────────────────────────────
+  // student_id và class_id lưu thẳng trong payment (schema mới).
+  // bill chain chỉ dùng để lấy month — nếu không có bill vẫn hiển thị được.
   var payments = rawPays.filter(function(p) {
     return p.date instanceof Date || (p.date && String(p.date).match(/\d/));
   }).map(function(p) {
-    var bill   = billMap[String(p.bill_id || '')] || {};
-    var enroll = enrollMap[String(bill.enrollment_id || '')] || {};
-    var cls    = classMap[String(enroll.class_id || '')] || {};
-    var stu    = studentMap[String(enroll.student_id || '')] || {};
+    var bill = billMap[String(p.bill_id || '')] || {};
+    // Ưu tiên student_id/class_id lưu trực tiếp; fallback về bill→enrollment chain
+    var enroll   = enrollMap[String(bill.enrollment_id || '')] || {};
+    var studentId = String(p.student_id || enroll.student_id || '');
+    var classId   = String(p.class_id   || enroll.class_id   || '');
+    var stu = studentMap[studentId] || {};
+    var cls = classMap[classId]     || {};
     return {
       id         : String(p.id || ''),
       billId     : String(p.bill_id || ''),
       date       : fmtDate(p.date),
-      studentId  : String(enroll.student_id || ''),
-      studentName: String(stu.name  || ''),
-      classId    : String(enroll.class_id || ''),
-      className  : String(cls.name  || ''),
-      month      : String(bill.month || ''),
+      studentId  : studentId,
+      studentName: String(stu.name || ''),
+      classId    : classId,
+      className  : String(cls.name || ''),
+      month      : String(bill.month || p.month || ''),
       amount     : parseFloat(p.amount) || 0,
-      method     : String(p.method  || ''),
-      staff      : String(p.staff   || ''),
-      note       : String(p.note    || '')
+      method     : String(p.method || ''),
+      staff      : String(p.staff  || ''),
+      note       : String(p.note   || '')
     };
   });
   payments.sort(function(a, b) {
@@ -313,6 +318,31 @@ function getAllData(termId) {
 
   mark('done');
   T.done = Date.now();
+
+  // Debug: sample chain JOIN cho payment đầu tiên có bill_id
+  var _dbg = (function() {
+    var p = rawPays.find(function(x) { return x.bill_id && String(x.bill_id).length > 0; });
+    if (!p) return { note: 'no payment has bill_id' };
+    var pid  = String(p.bill_id);
+    var bill = billMap[pid];
+    var enr  = bill ? enrollMap[String(bill.enrollment_id || '')] : null;
+    var stu  = enr  ? studentMap[String(enr.student_id || '')]   : null;
+    return {
+      samplePayId      : String(p.id),
+      sampleBillId     : pid,
+      billFound        : !!bill,
+      billEnrollmentId : bill  ? String(bill.enrollment_id) : '—',
+      enrollFound      : !!enr,
+      enrollStudentId  : enr   ? String(enr.student_id)    : '—',
+      studentFound     : !!stu,
+      studentName      : stu   ? String(stu.name)          : '—',
+      billMapSize      : Object.keys(billMap).length,
+      enrollMapSize    : Object.keys(enrollMap).length,
+      billMapSample    : Object.keys(billMap).slice(0, 3),
+      enrollMapSample  : Object.keys(enrollMap).slice(0, 3)
+    };
+  })();
+
   return {
     students   : students,
     payments   : payments,
@@ -330,7 +360,8 @@ function getAllData(termId) {
       monthlyRevenue: monthlyRevenue,
       classRevenue  : classRevMap
     },
-    _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
+    _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps },
+    _debug: _dbg
   };
 }
 
@@ -433,9 +464,9 @@ function addPayment(d) {
     billSheet.getRange(billRow, sCol).setValue(newStatus);
   }
 
-  // 4. Write payment
+  // 4. Write payment (student_id, class_id lưu thẳng để JOIN không phụ thuộc bill chain)
   var pid = genId('payments', 'PAY');
-  paySheet.appendRow([pid, bid, new Date(), amt, d.method || '', d.staff || '', d.note || '']);
+  paySheet.appendRow([pid, bid, d.studentId, d.classId, new Date(), amt, d.method || '', d.staff || '', d.note || '']);
 
   return { success: true, paymentId: pid };
 }
