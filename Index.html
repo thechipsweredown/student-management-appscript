@@ -545,6 +545,32 @@ tr:hover td { background: var(--gray-50); }
   </div>
 </div>
 
+<!-- Modal: Edit Payment -->
+<div class="modal-overlay" id="modalEditPayment">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title">Sửa thanh toán</span>
+      <button class="modal-close" onclick="closeModal('modalEditPayment')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ep_id">
+      <div id="ep_preview" style="background:var(--gray-50);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px"></div>
+      <div class="form-grid">
+        <div class="form-group span2"><label>Số tiền (đ) *</label><input class="form-control" id="ep_amount" type="number" min="0" step="50000"></div>
+        <div class="form-group"><label>Phương thức</label>
+          <select class="form-control" id="ep_method"><option>Tiền mặt</option><option>Chuyển khoản</option></select>
+        </div>
+        <div class="form-group"><label>Nhân viên nhận</label><input class="form-control" id="ep_staff"></div>
+        <div class="form-group span2"><label>Ghi chú</label><input class="form-control" id="ep_note"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalEditPayment')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="submitEditPayment()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: User -->
 <div class="modal-overlay" id="modalUser">
   <div class="modal" style="max-width:440px">
@@ -1107,7 +1133,11 @@ function renderPaymentTable() {
       '<td>' + methodBadge(p.method) + '</td>' +
       '<td style="font-size:12px;color:var(--gray-600)">' + esc(p.staff || '—') + '</td>' +
       '<td style="font-size:12px;color:var(--gray-600)">' + esc(p.note || '') + '</td>' +
-      '<td><button class="act-btn print" onclick=\'printReceipt(' + JSON.stringify(p) + ',' + JSON.stringify(stu || {}) + ')\' title="In phiếu thu">🖨️</button></td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="act-btn print" onclick=\'printReceipt(' + JSON.stringify(p) + ',' + JSON.stringify(stu || {}) + ')\' title="In phiếu thu">🖨️</button>' +
+        '<button class="act-btn edit"  onclick=\'openEditPayment(' + JSON.stringify(p) + ')\' title="Sửa">✏️</button>' +
+        '<button class="act-btn del"   onclick=\'confirmDeletePayment("' + esc(p.id) + '","' + esc(p.studentName) + '")\' title="Xoá">🗑️</button>' +
+      '</td>' +
     '</tr>';
   }).join('');
   document.getElementById('paymentTbody').innerHTML = tbody || '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:40px">Không có dữ liệu</td></tr>';
@@ -1232,6 +1262,54 @@ function saveTuition(classId, className) {
     })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .updateClassTuition(classId, val);
+}
+
+function openEditPayment(p) {
+  document.getElementById('ep_id').value      = p.id;
+  document.getElementById('ep_amount').value  = p.amount;
+  document.getElementById('ep_method').value  = p.method || 'Tiền mặt';
+  document.getElementById('ep_staff').value   = p.staff  || '';
+  document.getElementById('ep_note').value    = p.note   || '';
+  document.getElementById('ep_preview').innerHTML =
+    '<strong>' + esc(p.studentName) + '</strong> · ' + esc(p.className) + ' · ' + esc(p.month) + ' · ' + esc(p.date);
+  openModal('modalEditPayment');
+}
+
+function submitEditPayment() {
+  var d = {
+    id    : document.getElementById('ep_id').value,
+    amount: parseFloat(document.getElementById('ep_amount').value) || 0,
+    method: document.getElementById('ep_method').value,
+    staff : document.getElementById('ep_staff').value.trim(),
+    note  : document.getElementById('ep_note').value.trim()
+  };
+  if (!d.amount) { toast('Nhập số tiền!', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        closeModal('modalEditPayment');
+        var idx = APP.payments.findIndex(function(p) { return p.id === d.id; });
+        if (idx !== -1) { APP.payments[idx].amount = d.amount; APP.payments[idx].method = d.method; APP.payments[idx].staff = d.staff; APP.payments[idx].note = d.note; }
+        renderPaymentTable();
+        toast('Đã cập nhật thanh toán', 'success');
+      }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .updatePayment(d);
+}
+
+function confirmDeletePayment(id, name) {
+  if (!confirm('Xoá thanh toán của ' + name + '?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        APP.payments = APP.payments.filter(function(p) { return p.id !== id; });
+        renderPaymentTable();
+        toast('Đã xoá thanh toán', 'success');
+      }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .deletePayment(id);
 }
 
 function saveEnrollTuition(enrollId, studentName) {

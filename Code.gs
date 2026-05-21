@@ -503,6 +503,76 @@ function addPayment(d) {
   return { success: true, paymentId: pid };
 }
 
+function updatePayment(d) {
+  // d: {id, amount, method, staff, note}
+  var paySheet  = getSheet('payments');
+  var billSheet = getSheet('monthly_bills');
+  var payData   = paySheet.getDataRange().getValues();
+  var pH        = payData[0].map(function(h) { return String(h).trim(); });
+  var pIdCol    = pH.indexOf('id');
+  var pAmtCol   = pH.indexOf('amount');
+  var pMetCol   = pH.indexOf('method');
+  var pStaCol   = pH.indexOf('staff');
+  var pNtCol    = pH.indexOf('note');
+  var pBidCol   = pH.indexOf('bill_id');
+
+  var oldAmt = 0, bidVal = '';
+  for (var i = 1; i < payData.length; i++) {
+    if (String(payData[i][pIdCol]) !== String(d.id)) continue;
+    oldAmt = parseFloat(payData[i][pAmtCol]) || 0;
+    bidVal = String(payData[i][pBidCol] || '');
+    paySheet.getRange(i+1, pAmtCol+1).setValue(parseFloat(d.amount) || 0);
+    paySheet.getRange(i+1, pMetCol+1).setValue(d.method || '');
+    paySheet.getRange(i+1, pStaCol+1).setValue(d.staff  || '');
+    paySheet.getRange(i+1, pNtCol+1).setValue(d.note   || '');
+    break;
+  }
+  if (bidVal) _recalcBill(billSheet, bidVal);
+  return { success: true };
+}
+
+function deletePayment(id) {
+  var paySheet  = getSheet('payments');
+  var billSheet = getSheet('monthly_bills');
+  var payData   = paySheet.getDataRange().getValues();
+  var pH        = payData[0].map(function(h) { return String(h).trim(); });
+  var pIdCol    = pH.indexOf('id');
+  var pBidCol   = pH.indexOf('bill_id');
+  var bidVal    = '';
+  for (var i = 1; i < payData.length; i++) {
+    if (String(payData[i][pIdCol]) !== String(id)) continue;
+    bidVal = String(payData[i][pBidCol] || '');
+    paySheet.deleteRow(i + 1);
+    break;
+  }
+  if (bidVal) _recalcBill(billSheet, bidVal);
+  return { success: true };
+}
+
+function _recalcBill(billSheet, billId) {
+  var billData = billSheet.getDataRange().getValues();
+  var bH       = billData[0].map(function(h) { return String(h).trim(); });
+  var bIdCol   = bH.indexOf('id');
+  var bDueCol  = bH.indexOf('amount_due');
+  var bPdCol   = bH.indexOf('amount_paid');
+  var bDtCol   = bH.indexOf('debt');
+  var bStCol   = bH.indexOf('status');
+  for (var i = 1; i < billData.length; i++) {
+    if (String(billData[i][bIdCol]) !== String(billId)) continue;
+    var due  = parseFloat(billData[i][bDueCol]) || 0;
+    // Sum all payments for this bill
+    var paySheet = getSheet('payments');
+    var pays     = parseSheet('payments').filter(function(p) { return String(p.bill_id||'') === String(billId); });
+    var paid     = pays.reduce(function(a, p) { return a + (parseFloat(p.amount)||0); }, 0);
+    var debt     = Math.max(0, due - paid);
+    var status   = debt === 0 && paid > 0 ? 'Đã thanh toán' : paid > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán';
+    billSheet.getRange(i+1, bPdCol+1).setValue(paid);
+    billSheet.getRange(i+1, bDtCol+1).setValue(debt);
+    billSheet.getRange(i+1, bStCol+1).setValue(status);
+    break;
+  }
+}
+
 // ── Avatar ────────────────────────────────────────────────────
 function getAvatarFolder() {
   var name = 'Panda Happy - Avatars';
