@@ -634,27 +634,50 @@ function getSessions(classId) {
   }).sort(function(a, b) { return a.date < b.date ? 1 : -1; });
 }
 
-function getOrCreateSession(classId, dateStr) {
-  // dateStr: YYYY-MM-DD
+// Chỉ đọc, không tạo mới — dùng khi load form điểm danh
+function getSessionOnly(classId, dateStr) {
   var sheet = getSheet('sessions');
   var data  = sheet.getDataRange().getValues();
   var hdr   = data[0].map(function(h) { return String(h).trim(); });
   var cidC  = hdr.indexOf('class_id');
   var dateC = hdr.indexOf('date');
   var idC   = hdr.indexOf('id');
-
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][cidC]) !== String(classId)) continue;
     var d = data[i][dateC];
     var rowISO = d instanceof Date ? Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd') : String(d).substring(0, 10);
     if (rowISO === dateStr) {
       var sid = String(data[i][idC]);
-      return { sessionId: sid, created: false, attendance: getAttendanceForSession(sid) };
+      return { sessionId: sid, attendance: getAttendanceForSession(sid) };
+    }
+  }
+  return { sessionId: null, attendance: [] };
+}
+
+function getOrCreateSession(classId, dateStr) {
+  var sheet = getSheet('sessions');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var cidC  = hdr.indexOf('class_id');
+  var dateC = hdr.indexOf('date');
+  var idC   = hdr.indexOf('id');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][cidC]) !== String(classId)) continue;
+    var d = data[i][dateC];
+    var rowISO = d instanceof Date ? Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd') : String(d).substring(0, 10);
+    if (rowISO === dateStr) {
+      return String(data[i][idC]);
     }
   }
   var sid = genId('sessions', 'SES');
   sheet.appendRow([sid, classId, new Date(dateStr + 'T00:00:00'), '', '', 'Đã học', '']);
-  return { sessionId: sid, created: true, attendance: [] };
+  return sid;
+}
+
+// Tạo session (nếu chưa có) rồi lưu điểm danh — gọi khi submit
+function saveAttendanceForClass(classId, dateStr, records) {
+  var sessionId = getOrCreateSession(classId, dateStr);
+  return saveAttendance(sessionId, records);
 }
 
 function getAttendanceForSession(sessionId) {
