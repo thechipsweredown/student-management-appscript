@@ -30,20 +30,32 @@ function fmtDate(d) {
   return d ? String(d).substring(0, 10) : '';
 }
 
-// Đọc nhiều sheet trong 1 API call (cần bật Google Sheets API advanced service)
+// Đọc nhiều sheet trong 1 API call.
+// Nếu Google Sheets API advanced service chưa bật → fallback sang đọc từng sheet.
 function batchReadSheets(names) {
-  var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
-  var resp = Sheets.Spreadsheets.Values.batchGet(ssId, {
-    ranges: names,
-    majorDimension: 'ROWS',
-    valueRenderOption: 'UNFORMATTED_VALUE',
-    dateTimeRenderOption: 'SERIAL_NUMBER'
-  });
-  var map = {};
-  (resp.valueRanges || []).forEach(function(vr, i) {
-    map[names[i]] = vr.values || [];
-  });
-  return map;
+  try {
+    var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    var resp = Sheets.Spreadsheets.Values.batchGet(ssId, {
+      ranges: names,
+      majorDimension: 'ROWS',
+      valueRenderOption: 'UNFORMATTED_VALUE',
+      dateTimeRenderOption: 'SERIAL_NUMBER'
+    });
+    var map = {};
+    (resp.valueRanges || []).forEach(function(vr, i) {
+      map[names[i]] = vr.values || [];
+    });
+    return map;
+  } catch (e) {
+    // Fallback: đọc từng sheet (chậm hơn nhưng không cần advanced service)
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var map = {};
+    names.forEach(function(name) {
+      var sheet = ss.getSheetByName(name);
+      map[name] = sheet ? sheet.getDataRange().getValues() : [];
+    });
+    return map;
+  }
 }
 
 // Parse raw 2D array thành array of objects dùng row 0 làm header
