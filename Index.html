@@ -250,10 +250,11 @@ tr:hover td { background: var(--gray-50); }
     <div class="modal-body">
       <div id="payStudentPreview" class="student-preview" style="display:none"></div>
       <div class="form-grid">
-        <div class="form-group span2">
+        <div class="form-group span2" style="position:relative">
           <label>Học sinh *</label>
-          <input class="form-control" id="p_studentSearch" placeholder="Tìm tên học sinh…" list="studentDatalist" oninput="onPayStudentInput()">
-          <datalist id="studentDatalist"></datalist>
+          <input class="form-control" id="p_studentSearch" placeholder="Tìm tên hoặc mã HS…" autocomplete="off" oninput="onPayStudentInput()" onfocus="onPayStudentInput()" onblur="setTimeout(function(){var d=document.getElementById('p_studentDropdown');if(d)d.style.display='none';},180)">
+          <input type="hidden" id="p_studentId">
+          <div id="p_studentDropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;z-index:10;margin-top:2px"></div>
         </div>
         <div class="form-group span2">
           <label>Lớp *</label>
@@ -2323,6 +2324,7 @@ function saveStudent() {
 // ═══════════════════════════════════════════════
 function openAddPayment(prefillStudentId) {
   document.getElementById('p_studentSearch').value = '';
+  document.getElementById('p_studentId').value     = '';
   document.getElementById('p_classId').innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
   document.getElementById('p_amount').value  = '';
   document.getElementById('p_note').value    = '';
@@ -2331,35 +2333,63 @@ function openAddPayment(prefillStudentId) {
   var now = new Date();
   document.getElementById('p_month').value   = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   document.getElementById('payStudentPreview').style.display = 'none';
+  document.getElementById('p_studentDropdown').style.display = 'none';
 
   if (prefillStudentId) {
-    var s = APP.students.find(function(st) { return st.id === prefillStudentId; });
-    if (s) {
-      document.getElementById('p_studentSearch').value = s.name;
-      onPayStudentInput();
-    }
+    pickPayStudent(prefillStudentId);
   }
   openModal('modalPayment');
 }
 
+function _normVN(s) {
+  return String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd');
+}
+
 function onPayStudentInput() {
-  var val     = document.getElementById('p_studentSearch').value.trim();
+  var val  = document.getElementById('p_studentSearch').value.trim();
+  var dd   = document.getElementById('p_studentDropdown');
+  var q    = _normVN(val);
+  var list = APP.students.filter(function(st) {
+    if (!q) return true;
+    return _normVN(st.name).includes(q) || st.id.toLowerCase().includes(q.toLowerCase());
+  }).slice(0, 12);
+
+  dd.innerHTML = list.length
+    ? list.map(function(s) {
+        return '<div onmousedown="pickPayStudent(\'' + esc(s.id) + '\')" style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background=\'var(--gray-50)\'" onmouseout="this.style.background=\'\'">' +
+          avatarCircle(s, 26) +
+          '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + esc(s.name) + '</div>' +
+            '<div style="font-size:11px;color:var(--gray-400)">' + esc(s.id) + (s.primaryClass ? ' · ' + esc(s.primaryClass) : '') + '</div></div>' +
+        '</div>';
+      }).join('')
+    : '<div style="padding:12px;color:var(--gray-400);font-size:13px;text-align:center">Không tìm thấy</div>';
+  dd.style.display = 'block';
+
+  // Khi xoá hết input → reset preview/lớp
+  if (!val) {
+    document.getElementById('p_studentId').value = '';
+    document.getElementById('payStudentPreview').style.display = 'none';
+    document.getElementById('p_classId').innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
+  }
+}
+
+function pickPayStudent(studentId) {
+  var s = APP.students.find(function(st) { return st.id === studentId; });
+  if (!s) return;
+  document.getElementById('p_studentSearch').value = s.name;
+  document.getElementById('p_studentId').value     = s.id;
+  document.getElementById('p_studentDropdown').style.display = 'none';
+
   var preview = document.getElementById('payStudentPreview');
   var clsSel  = document.getElementById('p_classId');
-  var s       = APP.students.find(function(st) { return st.name === val || st.id === val; });
-  if (!s) {
-    preview.style.display = 'none';
-    clsSel.innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
-    clsSel.disabled  = false;
-    return;
-  }
-  // Nếu đang ở quick phase, classes chưa load → chờ full data
   if (s.classes.length === 0 && APP._phase === 'quick') {
     preview.style.display = 'block';
     preview.innerHTML = '<strong>' + esc(s.name) + '</strong> · <em style="color:var(--gray-400)">Đang tải thông tin lớp…</em>';
     clsSel.innerHTML = '<option value="">Đang tải…</option>';
     clsSel.disabled  = true;
-    window._pendingPayStudentName = val; // lưu để full data tự refresh
+    window._pendingPayStudentName = s.name;
     return;
   }
   clsSel.disabled = false;
@@ -2377,8 +2407,8 @@ function onPayStudentInput() {
 }
 
 function savePayment() {
-  var studentName = document.getElementById('p_studentSearch').value.trim();
-  var s = APP.students.find(function(st) { return st.name === studentName || st.id === studentName; });
+  var studentId = document.getElementById('p_studentId').value;
+  var s = APP.students.find(function(st) { return st.id === studentId; });
   var classId = document.getElementById('p_classId').value;
   var amount  = parseFloat(document.getElementById('p_amount').value);
   var month   = document.getElementById('p_month').value;
