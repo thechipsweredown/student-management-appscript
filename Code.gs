@@ -181,15 +181,6 @@ function getAllData(termId) {
   var studentMap = {};
   rawStudents.forEach(function(s) { if (s.id) studentMap[String(s.id)] = s; });
 
-  // Tổng tiền đã đóng theo student+class trực tiếp từ payments (không phụ thuộc bill chain)
-  var paidByStudentClass = {};
-  rawPays.forEach(function(p) {
-    var sid = String(p.student_id || '');
-    var cid = String(p.class_id   || '');
-    if (!sid || !cid) return;
-    var key = sid + '|' + cid;
-    paidByStudentClass[key] = (paidByStudentClass[key] || 0) + (parseFloat(p.amount) || 0);
-  });
   mark('compute:lookup_maps');
 
   // ── Parse students ────────────────────────────────────────
@@ -201,11 +192,8 @@ function getAllData(termId) {
       var cls     = classMap[String(e.class_id || '')] || {};
       var teacher = teacherMap[String(cls.teacher_id || '')] || {};
       var bills     = billByEnroll[String(e.id || '')] || [];
-      var billDue   = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_due) || 0); }, 0);
-      var billDebt  = bills.reduce(function(a, b) { return a + (parseFloat(b.debt)       || 0); }, 0);
-      // Đã đóng: ưu tiên tổng từ payments trực tiếp (đầy đủ hơn bill chain)
-      var paidKey   = String(s.id) + '|' + String(e.class_id || '');
-      var paid      = paidByStudentClass[paidKey] || bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
+      var billDue   = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_due)  || 0); }, 0);
+      var paid      = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
       var debt      = billDue > 0 ? Math.max(0, billDue - paid) : 0;
       return {
         enrollId    : String(e.id || ''),
@@ -240,27 +228,21 @@ function getAllData(termId) {
   mark('compute:students(' + students.length + ')');
 
   // ── Parse payments ────────────────────────────────────────
-  // student_id và class_id lưu thẳng trong payment (schema mới).
-  // bill chain chỉ dùng để lấy month — nếu không có bill vẫn hiển thị được.
   var payments = rawPays.filter(function(p) {
     return p.date instanceof Date || (p.date && String(p.date).match(/\d/));
   }).map(function(p) {
     var bill = billMap[String(p.bill_id || '')] || {};
-    // Ưu tiên student_id/class_id lưu trực tiếp; fallback về bill→enrollment chain
-    var enroll   = enrollMap[String(bill.enrollment_id || '')] || {};
-    var studentId = String(p.student_id || enroll.student_id || '');
-    var classId   = String(p.class_id   || enroll.class_id   || '');
-    var stu = studentMap[studentId] || {};
-    var cls = classMap[classId]     || {};
+    var stu  = studentMap[String(p.student_id || '')] || {};
+    var cls  = classMap[String(p.class_id   || '')] || {};
     return {
       id         : String(p.id || ''),
       billId     : String(p.bill_id || ''),
       date       : fmtDate(p.date),
-      studentId  : studentId,
+      studentId  : String(p.student_id || ''),
       studentName: String(stu.name || ''),
-      classId    : classId,
+      classId    : String(p.class_id || ''),
       className  : String(cls.name || ''),
-      month      : String(bill.month || p.month || ''),
+      month      : String(bill.month || ''),
       amount     : parseFloat(p.amount) || 0,
       method     : String(p.method || ''),
       staff      : String(p.staff  || ''),
@@ -332,30 +314,6 @@ function getAllData(termId) {
   mark('done');
   T.done = Date.now();
 
-  // Debug: sample chain JOIN cho payment đầu tiên có bill_id
-  var _dbg = (function() {
-    var p = rawPays.find(function(x) { return x.bill_id && String(x.bill_id).length > 0; });
-    if (!p) return { note: 'no payment has bill_id' };
-    var pid  = String(p.bill_id);
-    var bill = billMap[pid];
-    var enr  = bill ? enrollMap[String(bill.enrollment_id || '')] : null;
-    var stu  = enr  ? studentMap[String(enr.student_id || '')]   : null;
-    return {
-      samplePayId      : String(p.id),
-      sampleBillId     : pid,
-      billFound        : !!bill,
-      billEnrollmentId : bill  ? String(bill.enrollment_id) : '—',
-      enrollFound      : !!enr,
-      enrollStudentId  : enr   ? String(enr.student_id)    : '—',
-      studentFound     : !!stu,
-      studentName      : stu   ? String(stu.name)          : '—',
-      billMapSize      : Object.keys(billMap).length,
-      enrollMapSize    : Object.keys(enrollMap).length,
-      billMapSample    : Object.keys(billMap).slice(0, 3),
-      enrollMapSample  : Object.keys(enrollMap).slice(0, 3)
-    };
-  })();
-
   return {
     students   : students,
     payments   : payments,
@@ -373,8 +331,7 @@ function getAllData(termId) {
       monthlyRevenue: monthlyRevenue,
       classRevenue  : classRevMap
     },
-    _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps },
-    _debug: _dbg
+    _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
   };
 }
 
@@ -566,47 +523,6 @@ function deleteUser(email) {
     }
   }
   return { success: false };
-}
-
-// ── One-shot: gán term_id cho enrollments chưa có ────────────
-// Chạy 1 lần từ Apps Script Editor: chọn hàm này → Run
-function backfillEnrollmentTerm() {
-  var termSheet   = getSheet('terms');
-  var enrollSheet = getSheet('enrollments');
-  if (!termSheet || !enrollSheet) {
-    Logger.log('Không tìm thấy sheet terms hoặc enrollments');
-    return;
-  }
-
-  // Lấy tất cả terms, chọn term đầu tiên làm default
-  var terms = parseSheet('terms');
-  if (!terms.length) {
-    Logger.log('Chưa có kỳ học nào trong sheet terms');
-    return;
-  }
-
-  // Tìm term theo tên nếu muốn chỉ định, mặc định lấy cái đầu tiên
-  var defaultTerm = terms[0];
-  Logger.log('Dùng kỳ: ' + defaultTerm.term_name + ' · ' + defaultTerm.school_year + ' (id: ' + defaultTerm.id + ')');
-
-  // Tìm cột term_id trong enrollments
-  var enrollData = enrollSheet.getDataRange().getValues();
-  var hdr = enrollData[0].map(function(h) { return String(h).trim(); });
-  var termIdCol = hdr.indexOf('term_id');
-  if (termIdCol === -1) {
-    Logger.log('Không tìm thấy cột term_id trong enrollments. Hãy thêm cột này trước.');
-    return;
-  }
-
-  var updated = 0;
-  for (var i = 1; i < enrollData.length; i++) {
-    var currentTermId = String(enrollData[i][termIdCol] || '').trim();
-    if (!currentTermId) {
-      enrollSheet.getRange(i + 1, termIdCol + 1).setValue(defaultTerm.id);
-      updated++;
-    }
-  }
-  Logger.log('Đã cập nhật ' + updated + ' enrollments → term_id = ' + defaultTerm.id);
 }
 
 // ── Terms / Kỳ học ────────────────────────────────────────────
