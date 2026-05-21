@@ -585,9 +585,10 @@ function deleteTerm(id) {
 }
 
 // ── Teachers ──────────────────────────────────────────────────
+// Sheet columns: id, name, phone, email, subject_ids, status
 function getTeachers() {
   return parseSheet('teachers').map(function(t) {
-    return { id: String(t.id||''), name: String(t.name||''), subject: String(t.subject||''), phone: String(t.phone||''), email: String(t.email||'') };
+    return { id: String(t.id||''), name: String(t.name||''), phone: String(t.phone||''), email: String(t.email||''), subject: String(t.subject_ids||''), status: String(t.status||'') };
   });
 }
 
@@ -599,13 +600,13 @@ function saveTeacher(d) {
     var idCol = hdr.indexOf('id');
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][idCol]) === String(d.id)) {
-        sheet.getRange(i+1, 1, 1, 5).setValues([[d.id, d.name, d.subject||'', d.phone||'', d.email||'']]);
+        sheet.getRange(i+1, 1, 1, 6).setValues([[d.id, d.name, d.phone||'', d.email||'', d.subject||'', d.status||'Đang dạy']]);
         return { success: true };
       }
     }
   }
-  var id = genId('teachers', 'TCH');
-  sheet.appendRow([id, d.name, d.subject||'', d.phone||'', d.email||'']);
+  var id = genId('teachers', 'GV');
+  sheet.appendRow([id, d.name, d.phone||'', d.email||'', d.subject||'', d.status||'Đang dạy']);
   return { success: true, id: id };
 }
 
