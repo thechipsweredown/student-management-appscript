@@ -1112,8 +1112,8 @@ function renderStudentTable() {
       '<td>' + classBadges + '</td>' +
       '<td>' + debtCell + '</td>' +
       '<td style="white-space:nowrap">' +
-        '<button class="act-btn edit" onclick=\'openEditStudent(' + JSON.stringify(s) + ')\'>✏️</button>' +
-        '<button class="act-btn" onclick=\'openStudentDetail(' + JSON.stringify(s) + ')\' title="Chi tiết">👁️</button>' +
+        '<button class="act-btn edit" onclick=\'openEditStudentById("' + esc(s.id) + '")\'>✏️</button>' +
+        '<button class="act-btn" onclick=\'openStudentDetailById("' + esc(s.id) + '")\' title="Chi tiết">👁️</button>' +
         '<button class="act-btn pay" onclick=\'openAddPayment("' + esc(s.id) + '")\'>💰</button>' +
       '</td></tr>';
   }).join('');
@@ -1121,6 +1121,15 @@ function renderStudentTable() {
   renderPaging('studentPaging', pages, PAGE.students, function(p) { PAGE.students = p; renderStudentTable(); });
   document.getElementById('studentPaging').querySelector('.page-info').textContent =
     'Hiển thị ' + (start + 1) + '–' + Math.min(start + PAGE.pageSize, data.length) + ' / ' + data.length + ' học sinh';
+}
+
+function openStudentDetailById(id) {
+  var s = APP.students.find(function(x) { return x.id === id; });
+  if (s) openStudentDetail(s);
+}
+function openEditStudentById(id) {
+  var s = APP.students.find(function(x) { return x.id === id; });
+  if (s) openEditStudent(s);
 }
 
 function openStudentDetail(s) {
@@ -2174,7 +2183,10 @@ function saveStudent() {
     google.script.run.withSuccessHandler(function(r) {
       if (!r.success) { showLoading(false); toast('Lỗi: ' + (r.error || ''), 'error'); return; }
       var idx = APP.students.findIndex(function(s) { return s.id === d.id; });
-      if (idx > -1) Object.assign(APP.students[idx], { name: d.name, dob: d.dob, gender: d.gender, status: d.status, address: d.address });
+      if (idx > -1) {
+        var dobFmt = d.dob ? (function(){ var p=d.dob.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; })() : '';
+        Object.assign(APP.students[idx], { name: d.name, dob: dobFmt, gender: d.gender, status: d.status, address: d.address });
+      }
       onSaved(d.id);
     }).withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); }).updateStudent(d);
   } else {
