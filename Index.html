@@ -130,17 +130,32 @@ tr:hover td { background: var(--gray-50); }
 #printArea { display: none; }
 @media print {
   body > *:not(#printArea) { display: none !important; }
-  #printArea { display: block !important; font-family: Arial, sans-serif; padding: 20px; }
-  .receipt { max-width: 400px; margin: 0 auto; border: 1px solid #333; padding: 20px; }
-  .receipt-header { text-align: center; margin-bottom: 16px; }
-  .receipt-title { font-size: 18px; font-weight: bold; letter-spacing: 2px; margin: 8px 0; }
-  .receipt-row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 13px; }
-  .receipt-row.total { font-size: 15px; font-weight: bold; border-top: 1px solid #333; padding-top: 8px; margin-top: 8px; }
-  .receipt-words { font-style: italic; font-size: 12px; margin: 4px 0 12px; }
-  .receipt-sigs { display: flex; justify-content: space-around; margin-top: 30px; text-align: center; font-size: 12px; }
-  .receipt-sigs div { width: 120px; }
-  .receipt-sigs .sig-line { border-top: 1px solid #333; margin-top: 40px; padding-top: 4px; }
+  #printArea { display: block !important; }
 }
+/* Phiếu thu styles — dùng cả khi preview modal lẫn khi in */
+.pt-wrap { font-family: Arial, sans-serif; font-size: 13px; color: #000; max-width: 680px; margin: 0 auto; }
+.pt-box  { border: 1.5px solid #555; padding: 18px 22px 14px; margin-bottom: 0; }
+.pt-header { display: flex; align-items: flex-start; gap: 0; margin-bottom: 18px; }
+.pt-org   { flex: 1.2; font-size: 12px; line-height: 1.5; }
+.pt-org strong { font-size: 13px; }
+.pt-title-col { flex: 1; text-align: center; }
+.pt-title { font-size: 22px; font-weight: 900; letter-spacing: 2px; margin-bottom: 2px; }
+.pt-title-sub { font-size: 12px; margin: 2px 0; }
+.pt-mau  { flex: 1.2; text-align: right; font-size: 11px; line-height: 1.6; }
+.pt-mau strong { font-size: 13px; }
+.pt-mau em { font-style: italic; font-size: 10.5px; }
+.pt-field { display: flex; align-items: baseline; margin-bottom: 10px; gap: 6px; }
+.pt-label { white-space: nowrap; font-size: 13px; flex-shrink: 0; }
+.pt-line  { flex: 1; border-bottom: 1px solid #555; min-width: 40px; padding-bottom: 1px; font-size: 13px; }
+.pt-inline { display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.pt-inline .pt-line { min-width: 60px; }
+.pt-amount { font-size: 15px; font-weight: 900; }
+.pt-words  { font-style: italic; }
+.pt-date   { text-align: right; font-style: italic; margin: 14px 0 18px; font-size: 13px; }
+.pt-sigs   { display: flex; justify-content: space-around; text-align: center; font-size: 13px; margin-bottom: 8px; }
+.pt-sigs > div { width: 160px; }
+.pt-sigs .pt-sig-space { height: 52px; }
+.pt-note  { border-top: 1.5px dashed #888; padding-top: 10px; margin-top: 4px; font-size: 12px; }
 @media (max-width: 768px) {
   #sidebar { transform: translateX(-100%); transition: transform .25s; }
   #sidebar.open { transform: none; }
@@ -1879,29 +1894,77 @@ function numToWords(n) {
 }
 
 function printReceipt(pay, stu) {
-  var now = pay.date || new Date().toLocaleDateString('vi-VN');
-  document.getElementById('printArea').innerHTML =
-    '<div class="receipt">' +
-      '<div class="receipt-header">' +
-        '<div style="font-size:13px;font-weight:bold">TRUNG TÂM NGOẠI NGỮ PANDA HAPPY</div>' +
-        '<div style="font-size:11px">ĐT: 0375.458.815</div>' +
-        '<div class="receipt-title">PHIẾU THU</div>' +
-        '<div style="font-size:11px">Số: ' + esc(pay.id || '') + ' &nbsp;·&nbsp; Ngày: ' + esc(now) + '</div>' +
+  var name    = esc((stu && stu.name) || pay.studentName || '');
+  var stuId   = esc((stu && stu.id)   || pay.studentId  || '');
+  var addr    = esc((stu && stu.address) || '');
+  var cls     = esc(pay.className || '');
+  var month   = pay.month ? pay.month.replace(/^(\d{4})-(\d{2})$/, 'tháng $2/$1') : '';
+  var lydo    = 'Tiền học phí ' + (month || '') + (cls ? ' — lớp ' + pay.className : '');
+  var amtFmt  = (pay.amount || 0).toLocaleString('vi-VN');
+  var words   = numToWords(pay.amount || 0);
+  // Capitalise first letter
+  words = words.charAt(0).toUpperCase() + words.slice(1);
+
+  var now = new Date();
+  var yr  = now.getFullYear();
+
+  var html =
+    '<div class="pt-wrap">' +
+      '<div class="pt-box">' +
+        // ── Header ──
+        '<div class="pt-header">' +
+          '<div class="pt-org"><strong>Trung tâm Ngoại Ngữ Panda Happy</strong><br>Điện thoại: 0375.458.815</div>' +
+          '<div class="pt-title-col">' +
+            '<div class="pt-title">PHIẾU THU</div>' +
+            '<div class="pt-title-sub">Liên 1</div>' +
+            '<div class="pt-title-sub">Số: .....................</div>' +
+          '</div>' +
+          '<div class="pt-mau">' +
+            '<strong>Mẫu số: 01 - TT</strong><br>' +
+            '<em>(Ban hành theo QĐ số 48/2006/QĐ-BTC<br>ngày 14/09/2006 của Bộ trưởng BTC)</em><br>' +
+            'Quyền số: .............' +
+          '</div>' +
+        '</div>' +
+        // ── Fields ──
+        '<div class="pt-field">' +
+          '<span class="pt-label">Học viên nộp tiền:</span>' +
+          '<span class="pt-line">' + name + '</span>' +
+          '<span class="pt-inline" style="margin-left:16px"><span class="pt-label">Mã HS:</span><span class="pt-line">' + stuId + '</span></span>' +
+          '<span class="pt-inline" style="margin-left:12px"><span class="pt-label">Lớp:</span><span class="pt-line">' + cls + '</span></span>' +
+        '</div>' +
+        '<div class="pt-field">' +
+          '<span class="pt-label">Địa chỉ:</span>' +
+          '<span class="pt-line">' + addr + '</span>' +
+        '</div>' +
+        '<div class="pt-field">' +
+          '<span class="pt-label">Lý do nộp:</span>' +
+          '<span class="pt-line">' + esc(lydo) + '</span>' +
+        '</div>' +
+        '<div class="pt-field">' +
+          '<span class="pt-label">Ghi chú:</span>' +
+          '<span class="pt-line">' + esc(pay.note || '') + '</span>' +
+        '</div>' +
+        '<div class="pt-field">' +
+          '<span class="pt-label">Số tiền:</span>' +
+          '<span class="pt-line"><span class="pt-amount">' + amtFmt + '</span></span>' +
+          '<span style="margin-left:8px;font-size:13px">đồng</span>' +
+        '</div>' +
+        '<div class="pt-field">' +
+          '<span class="pt-label">Viết bằng chữ:</span>' +
+          '<span class="pt-line pt-words">' + esc(words) + '</span>' +
+        '</div>' +
+        // ── Date + sigs ──
+        '<div class="pt-date">Việt An, Ngày ...... Tháng ...... Năm ' + yr + '</div>' +
+        '<div class="pt-sigs">' +
+          '<div><strong>Người nộp tiền</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
+          '<div><strong>Người lập phiếu</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
+        '</div>' +
       '</div>' +
-      '<div class="receipt-row"><span>Họ tên học sinh:</span><span><strong>' + esc((stu && stu.name) || pay.studentName || '') + '</strong></span></div>' +
-      '<div class="receipt-row"><span>Mã học sinh:</span><span>' + esc((stu && stu.id) || pay.studentId || '') + '</span></div>' +
-      '<div class="receipt-row"><span>Lớp:</span><span>' + esc(pay.className || '') + '</span></div>' +
-      '<div class="receipt-row"><span>Thanh toán tháng:</span><span>' + esc(pay.month || '') + '</span></div>' +
-      '<div class="receipt-row"><span>Phương thức:</span><span>' + esc(pay.method || '') + '</span></div>' +
-      (pay.staff ? '<div class="receipt-row"><span>Nhân viên nhận:</span><span>' + esc(pay.staff) + '</span></div>' : '') +
-      '<div class="receipt-row total"><span>Số tiền:</span><span>' + (pay.amount || 0).toLocaleString('vi-VN') + ' đồng</span></div>' +
-      '<div class="receipt-words">Bằng chữ: ' + numToWords(pay.amount) + '</div>' +
-      (pay.note ? '<div style="font-size:12px;margin-bottom:8px">Ghi chú: ' + esc(pay.note) + '</div>' : '') +
-      '<div class="receipt-sigs">' +
-        '<div><div>Người nộp tiền</div><div class="sig-line">(Ký, họ tên)</div></div>' +
-        '<div><div>Nhân viên nhận</div><div class="sig-line">' + esc(pay.staff || '') + '</div></div>' +
-      '</div>' +
+      // ── Note strip below box ──
+      '<div class="pt-note">GHI CHÚ:..........................................................................................................................................................................................................................................</div>' +
     '</div>';
+
+  document.getElementById('printArea').innerHTML = html;
   window.print();
 }
 
