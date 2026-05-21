@@ -130,7 +130,7 @@ function getAllData(termId) {
   var T = { start: Date.now(), steps: [] };
   function mark(label) { T.steps.push({ label: label, ms: Date.now() - T.start }); }
 
-  var SHEET_NAMES = ['students','enrollments','classes','teachers','monthly_bills','payments','DS Lớp','terms'];
+  var SHEET_NAMES = ['students','enrollments','classes','teachers','monthly_bills','payments','DS Lớp','terms','sessions','attendance'];
   var raw = batchReadSheets(SHEET_NAMES);
   mark('batchRead:all_sheets');
   T.read = Date.now();
@@ -374,6 +374,39 @@ function getAllData(termId) {
   mark('done');
   T.done = Date.now();
 
+  // Tính att7days inline từ data đã đọc → tránh round-trip thứ 3 từ client
+  var isoDate = function(v) {
+    if (v instanceof Date) return Utilities.formatDate(v, TIMEZONE, 'yyyy-MM-dd');
+    if (typeof v === 'number' && v > 1000) return Utilities.formatDate(new Date(Math.round((v - 25569) * 86400000)), TIMEZONE, 'yyyy-MM-dd');
+    return String(v).substring(0, 10);
+  };
+  var rawSessions = parseFromValues(raw['sessions'] || []);
+  var rawAtt      = parseFromValues(raw['attendance'] || []);
+  var today7 = new Date();
+  var days7 = [];
+  for (var d7i = 6; d7i >= 0; d7i--) {
+    var d7tmp = new Date(today7.getTime()); d7tmp.setDate(d7tmp.getDate() - d7i);
+    days7.push(Utilities.formatDate(d7tmp, TIMEZONE, 'yyyy-MM-dd'));
+  }
+  var sesDate7 = {};
+  rawSessions.forEach(function(s) {
+    var iso7 = isoDate(s.date);
+    if (days7.indexOf(iso7) !== -1) sesDate7[String(s.id || '')] = iso7;
+  });
+  var cnt7 = {};
+  days7.forEach(function(dy) { cnt7[dy] = { present: 0, absent: 0, late: 0 }; });
+  rawAtt.forEach(function(a) {
+    var date7 = sesDate7[String(a.session_id || '')];
+    if (!date7) return;
+    var st7 = String(a.status || '');
+    if (st7 === 'Có mặt')        cnt7[date7].present++;
+    else if (st7 === 'Vắng')     cnt7[date7].absent++;
+    else if (st7 === 'Đi muộn')  cnt7[date7].late++;
+  });
+  var att7days = days7.map(function(dy) {
+    return { date: dy.substring(5), present: cnt7[dy].present, absent: cnt7[dy].absent, late: cnt7[dy].late };
+  });
+
   var teacherList = rawTeachers.map(function(t) {
     return { id: String(t.id||''), name: String(t.name||''), status: String(t.status||'') };
   });
@@ -399,6 +432,7 @@ function getAllData(termId) {
       monthlyDebt   : monthlyDebt,
       classRevenue  : classRevMap
     },
+    att7days     : att7days,
     currentTermId: resolvedTermId,
     _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
   };
@@ -428,11 +462,13 @@ function updateStudent(d) {
   headers.forEach(function(h, i) { col[h] = i + 1; });
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][col['id'] - 1]) !== String(d.id)) continue;
-    sheet.getRange(i + 1, col['name']).setValue(d.name);
-    sheet.getRange(i + 1, col['dob']).setValue(d.dob ? new Date(d.dob) : '');
-    sheet.getRange(i + 1, col['gender']).setValue(d.gender || '');
-    sheet.getRange(i + 1, col['status']).setValue(d.status || '');
-    sheet.getRange(i + 1, col['address']).setValue(d.address || '');
+    var row = data[i].slice();
+    row[col['name']    - 1] = d.name;
+    row[col['dob']     - 1] = d.dob ? new Date(d.dob) : '';
+    row[col['gender']  - 1] = d.gender || '';
+    row[col['status']  - 1] = d.status || '';
+    row[col['address'] - 1] = d.address || '';
+    sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
     return { success: true };
   }
   return { success: false, error: 'Không tìm thấy học sinh' };
@@ -446,8 +482,13 @@ function addPayment(d) {
   var paySheet    = getSheet('payments');
   var clsSheet    = getSheet('classes');
 
+  // Batch-read 3 sheets in 1 call
+  var rawMap     = batchReadSheets(['enrollments', 'classes', 'monthly_bills']);
+  var enrollData = rawMap['enrollments'];
+  var clsData    = rawMap['classes'];
+  var billData   = rawMap['monthly_bills'];
+
   // 1. Find or create enrollment
-  var enrollData = enrollSheet.getDataRange().getValues();
   var eHdr = enrollData[0].map(function(h) { return String(h).trim(); });
   var eid = '';
   for (var i = 1; i < enrollData.length; i++) {
@@ -464,7 +505,6 @@ function addPayment(d) {
   }
 
   // 2. Find class tuition
-  var clsData = clsSheet.getDataRange().getValues();
   var cHdr    = clsData[0].map(function(h) { return String(h).trim(); });
   var tuition = 0;
   for (var k = 1; k < clsData.length; k++) {
@@ -474,7 +514,6 @@ function addPayment(d) {
   }
 
   // 3. Find or create monthly_bill
-  var billData = billSheet.getDataRange().getValues();
   var bHdr     = billData[0].map(function(h) { return String(h).trim(); });
   var bid = '', billRow = -1, prevPaid = 0, amtDue = tuition;
   for (var j = 1; j < billData.length; j++) {
@@ -607,11 +646,13 @@ function saveClass(d) {
   if (d.id) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][idCol]) !== String(d.id)) continue;
-      sheet.getRange(i+1, nmCol+1).setValue(d.name || '');
-      sheet.getRange(i+1, tcCol+1).setValue(d.teacherId || '');
-      sheet.getRange(i+1, tuiCol+1).setValue(parseFloat(d.tuition) || 0);
-      sheet.getRange(i+1, subCol+1).setValue(d.subject || '');
-      sheet.getRange(i+1, stCol+1).setValue(d.status || 'Đang hoạt động');
+      var row = data[i].slice();
+      row[nmCol]  = d.name || '';
+      row[tcCol]  = d.teacherId || '';
+      row[tuiCol] = parseFloat(d.tuition) || 0;
+      row[subCol] = d.subject || '';
+      row[stCol]  = d.status || 'Đang hoạt động';
+      sheet.getRange(i+1, 1, 1, row.length).setValues([row]);
       return { success: true, id: d.id };
     }
   }
@@ -896,11 +937,12 @@ function deleteTerm(id) {
 
 // ── Sessions & Attendance ─────────────────────────────────────
 function getSessions(classId) {
-  var raw = parseSheet('sessions');
+  var rawMap = batchReadSheets(['sessions', 'attendance']);
+  var raw = parseFromValues(rawMap['sessions']);
   if (classId) raw = raw.filter(function(s) { return String(s.class_id||'') === String(classId); });
 
   // Build attendance counts per session
-  var att = parseSheet('attendance');
+  var att = parseFromValues(rawMap['attendance']);
   var counts = {};
   att.forEach(function(a) {
     var sid = String(a.session_id||'');
@@ -919,8 +961,9 @@ function getSessions(classId) {
 
 function getAttendanceLast7Days() {
   var today    = new Date();
-  var sessions = parseSheet('sessions');
-  var attRows  = parseSheet('attendance');
+  var rawMap   = batchReadSheets(['sessions', 'attendance']);
+  var sessions = parseFromValues(rawMap['sessions']);
+  var attRows  = parseFromValues(rawMap['attendance']);
 
   var days = [];
   for (var i = 6; i >= 0; i--) {
@@ -1030,8 +1073,11 @@ function saveAttendance(sessionId, records) {
   records.forEach(function(rec) {
     var stuId = String(rec.student_id);
     if (existingRow[stuId]) {
-      sheet.getRange(existingRow[stuId], stC + 1).setValue(rec.status || '');
-      sheet.getRange(existingRow[stuId], ntC + 1).setValue(rec.note  || '');
+      var rowIdx  = existingRow[stuId];
+      var rowData = data[rowIdx - 1].slice();
+      rowData[stC] = rec.status || '';
+      rowData[ntC] = rec.note  || '';
+      sheet.getRange(rowIdx, 1, 1, rowData.length).setValues([rowData]);
     } else {
       maxN++;
       toAdd.push(['ATT' + String(maxN).padStart(4,'0'), sessionId, stuId, rec.status||'', rec.note||'']);
@@ -1042,10 +1088,11 @@ function saveAttendance(sessionId, records) {
 }
 
 function getAttendanceStats(classId, termId) {
-  var sessions   = parseSheet('sessions');
-  var attendance = parseSheet('attendance');
-  var students   = parseSheet('students');
-  var enrollments= parseSheet('enrollments');
+  var rawMap     = batchReadSheets(['sessions', 'attendance', 'students', 'enrollments']);
+  var sessions   = parseFromValues(rawMap['sessions']);
+  var attendance = parseFromValues(rawMap['attendance']);
+  var students   = parseFromValues(rawMap['students']);
+  var enrollments= parseFromValues(rawMap['enrollments']);
 
   // Valid class IDs for filter
   var validClasses = {};

@@ -804,7 +804,7 @@ window.onload = function() {
           populateTermPicker();
           initUI();
           renderDashboard();
-          loadAttChart();
+          loadAttChart(data.att7days);
         })
         .withFailureHandler(function(e) { showError(e.message); })
         .getAllData(APP.currentTermId);
@@ -863,7 +863,7 @@ function onTermChange() {
       initUI();
       var active = document.querySelector('.view.active');
       var name = active ? active.id.replace('view-', '') : 'dashboard';
-      if (name === 'dashboard') { renderDashboard(); loadAttChart(); }
+      if (name === 'dashboard') { renderDashboard(); loadAttChart(data.att7days); }
       else if (name === 'students') { PAGE.students = 1; renderStudentTable(); }
       else if (name === 'payments') { PAGE.payments = 1; renderPaymentTable(); }
       else if (name === 'classes')  renderClassGrid();
@@ -1084,37 +1084,40 @@ function switchRevTab(tab) {
   renderDashboard();
 }
 
-function loadAttChart() {
+function renderAttChart(rows) {
+  if (CHARTS.att) CHARTS.att.destroy();
+  var labels  = rows.map(function(r) { return r.date; });
+  var present = rows.map(function(r) { return r.present; });
+  var absent  = rows.map(function(r) { return r.absent; });
+  var late    = rows.map(function(r) { return r.late; });
+  var canvas  = document.getElementById('attChart');
+  if (!canvas) return;
+  CHARTS.att = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Có mặt', data: present, borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,.10)', fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
+        { label: 'Vắng',   data: absent,  borderColor: '#b91c1c', backgroundColor: 'rgba(185,28,28,.08)', fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
+        { label: 'Đi muộn',data: late,    borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)',  fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 }
+      ]
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { font: { size: 12 }, padding: 14, boxWidth: 14 } } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 4 }, grid: { color: '#f3f4f6' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function loadAttChart(preloadedRows) {
+  if (preloadedRows) { renderAttChart(preloadedRows); return; }
   google.script.run
-    .withSuccessHandler(function(rows) {
-      if (CHARTS.att) CHARTS.att.destroy();
-      var labels   = rows.map(function(r) { return r.date; });
-      var present  = rows.map(function(r) { return r.present; });
-      var absent   = rows.map(function(r) { return r.absent; });
-      var late     = rows.map(function(r) { return r.late; });
-      var canvas   = document.getElementById('attChart');
-      if (!canvas) return;
-      CHARTS.att = new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Có mặt', data: present, borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,.10)', fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
-            { label: 'Vắng',   data: absent,  borderColor: '#b91c1c', backgroundColor: 'rgba(185,28,28,.08)', fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
-            { label: 'Đi muộn',data: late,    borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)',  fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 }
-          ]
-        },
-        options: {
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { position: 'top', labels: { font: { size: 12 }, padding: 14, boxWidth: 14 } } },
-          scales: {
-            y: { beginAtZero: true, ticks: { stepSize: 4 }, grid: { color: '#f3f4f6' } },
-            x: { grid: { display: false } }
-          }
-        }
-      });
-    })
+    .withSuccessHandler(renderAttChart)
     .withFailureHandler(function() {})
     .getAttendanceLast7Days();
 }
