@@ -47,7 +47,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 #content { padding: 20px 24px; flex: 1; }
 .view { display: none; }
 .view.active { display: block; }
-.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 18px; }
+.stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 18px; }
 .stat-card { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--gray-200); display: flex; align-items: center; gap: 14px; border-left: 4px solid transparent; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .stat-card.c-orange { border-left-color: var(--primary); }
 .stat-card.c-teal   { border-left-color: var(--teal); }
@@ -325,10 +325,12 @@ tr:hover td { background: var(--gray-50); }
           <span id="db_filterNote" style="font-size:12px;color:var(--primary);font-weight:600;display:none"></span>
         </div>
         <div class="stats-grid">
-          <div class="stat-card c-orange"><div class="stat-icon orange">👩‍🎓</div><div><div class="stat-label">Tổng học sinh</div><div class="stat-value" id="st-total">—</div></div></div>
-          <div class="stat-card c-teal"><div class="stat-icon teal">✅</div><div><div class="stat-label">Đang học</div><div class="stat-value" id="st-active">—</div></div></div>
+          <div class="stat-card c-orange"><div class="stat-icon orange">👩‍🎓</div><div><div class="stat-label">Tổng học sinh</div><div class="stat-value" id="st-total">—</div><div class="stat-sub" id="st-active-sub"></div></div></div>
+          <div class="stat-card c-teal"><div class="stat-icon teal">🏫</div><div><div class="stat-label">Lớp đang hoạt động</div><div class="stat-value" id="st-classes">—</div></div></div>
+          <div class="stat-card c-indigo"><div class="stat-icon indigo">👨‍🏫</div><div><div class="stat-label">Giáo viên</div><div class="stat-value" id="st-teachers">—</div></div></div>
           <div class="stat-card c-indigo"><div class="stat-icon indigo">💵</div><div><div class="stat-label">Tổng thu</div><div class="stat-value" id="st-rev">—</div><div class="stat-sub" id="st-rev-sub"></div></div></div>
           <div class="stat-card c-rose"><div class="stat-icon rose">⚠️</div><div><div class="stat-label">Tổng nợ</div><div class="stat-value" id="st-debt">—</div></div></div>
+          <div class="stat-card c-teal"><div class="stat-icon teal">✅</div><div><div class="stat-label">Đang học</div><div class="stat-value" id="st-active">—</div></div></div>
         </div>
         <div class="charts-grid-2">
           <div class="chart-card">
@@ -708,6 +710,9 @@ function applyData(data) {
   APP.classGroups = data.classGroups || [];
   APP.terms       = data.terms       || [];
   APP.stats       = data.stats       || {};
+  if (data.currentTermId && data.currentTermId !== APP.currentTermId) {
+    APP.currentTermId = data.currentTermId;
+  }
   if (data._timing) {
     var t = data._timing;
     console.group('%c[Panda] Load ' + t.total + 'ms  server=' + t.total + 'ms  client+=' + (Date.now() - window._loadStart - t.total) + 'ms', 'color:#e07b39;font-weight:bold');
@@ -730,8 +735,7 @@ function populateTermPicker() {
     return '<option value="' + esc(t.id) + '">' + esc(t.term_name) + ' · ' + esc(t.school_year) + '</option>';
   }).join('');
   sel.value = APP.currentTermId;
-  var picker = document.getElementById('termPicker');
-  picker.style.display = APP.terms.length ? 'flex' : 'none';
+  document.getElementById('termPicker').style.display = APP.terms.length ? 'flex' : 'none';
 }
 
 function onTermChange() {
@@ -850,11 +854,15 @@ function renderDashboard() {
   var totalDebt = students.reduce(function(a, s) { return a + s.totalDebt; }, 0);
   var active    = students.filter(function(s) { return s.status === 'Đang học'; }).length;
 
-  document.getElementById('st-total').textContent  = fmt(students.length);
-  document.getElementById('st-active').textContent = fmt(active);
-  document.getElementById('st-rev').textContent    = fmtMoney(totalRev);
-  document.getElementById('st-rev-sub').textContent = fmt(payments.length) + ' giao dịch';
-  document.getElementById('st-debt').textContent   = fmtMoney(totalDebt);
+  var s = APP.stats || {};
+  document.getElementById('st-total').textContent    = fmt(students.length);
+  document.getElementById('st-active-sub').textContent = fmt(active) + ' đang học';
+  document.getElementById('st-classes').textContent  = fmt(s.activeClasses  || 0);
+  document.getElementById('st-teachers').textContent = fmt(s.teacherCount   || 0);
+  document.getElementById('st-active').textContent   = fmt(active);
+  document.getElementById('st-rev').textContent      = fmtMoney(totalRev);
+  document.getElementById('st-rev-sub').textContent  = fmt(payments.length) + ' giao dịch';
+  document.getElementById('st-debt').textContent     = fmtMoney(totalDebt);
 
   var classCount = {};
   students.forEach(function(s) {

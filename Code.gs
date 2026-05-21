@@ -141,10 +141,28 @@ function getAllData(termId) {
   var rawTermsArr = parseFromValues(raw['terms']);         mark('parse:terms('      + rawTermsArr.length  + ')');
   mark('parse:done');
 
-  // Lọc enrollment theo kỳ nếu có termId
-  if (termId) {
+  // Auto-detect kỳ hiện tại nếu không truyền termId
+  var resolvedTermId = termId || '';
+  if (!resolvedTermId && rawTermsArr.length) {
+    var todaySerial = new Date().getTime() / 86400000 + 25569;
+    var latestPastId = '', latestPastEnd = 0;
+    rawTermsArr.forEach(function(t) {
+      var s = typeof t.start_date === 'number' ? t.start_date : 0;
+      var e = typeof t.end_date   === 'number' ? t.end_date   : 0;
+      if (s && e && todaySerial >= s && todaySerial <= e) {
+        resolvedTermId = String(t.id || '');
+      } else if (e && e < todaySerial && e > latestPastEnd) {
+        latestPastEnd = e;
+        latestPastId  = String(t.id || '');
+      }
+    });
+    if (!resolvedTermId && latestPastId) resolvedTermId = latestPastId;
+    mark('detect:currentTerm(' + resolvedTermId + ')');
+  }
+
+  if (resolvedTermId) {
     rawEnroll = rawEnroll.filter(function(e) {
-      return String(e.term_id || '') === String(termId);
+      return String(e.term_id || '') === String(resolvedTermId);
     });
     mark('filter:enrollments_by_term(' + rawEnroll.length + ')');
   }
@@ -315,9 +333,11 @@ function getAllData(termId) {
   }
 
   // ── Stats ─────────────────────────────────────────────────
-  var totalRevenue  = payments.reduce(function(a, p) { return a + p.amount; }, 0);
-  var totalDebt     = students.reduce(function(a, s) { return a + s.totalDebt; }, 0);
+  var totalRevenue   = payments.reduce(function(a, p) { return a + p.amount; }, 0);
+  var totalDebt      = students.reduce(function(a, s) { return a + s.totalDebt; }, 0);
   var activeStudents = students.filter(function(s) { return s.status === 'Đang học'; }).length;
+  var activeClasses  = classes.filter(function(c) { return c.count > 0; }).length;
+  var teacherCount   = rawTeachers.filter(function(t) { return String(t.status || '') === 'Đang dạy'; }).length;
 
   var monthlyMap = {};
   payments.forEach(function(p) {
@@ -359,6 +379,8 @@ function getAllData(termId) {
     stats: {
       totalStudents : students.length,
       activeStudents: activeStudents,
+      activeClasses : activeClasses,
+      teacherCount  : teacherCount,
       totalRevenue  : totalRevenue,
       totalDebt     : totalDebt,
       totalPayments : payments.length,
@@ -366,6 +388,7 @@ function getAllData(termId) {
       monthlyDebt   : monthlyDebt,
       classRevenue  : classRevMap
     },
+    currentTermId: resolvedTermId,
     _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
   };
 }
