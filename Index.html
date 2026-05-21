@@ -309,11 +309,11 @@ tr:hover td { background: var(--gray-50); }
           <div class="stat-card c-rose"><div class="stat-icon rose">⚠️</div><div><div class="stat-label">Tổng nợ</div><div class="stat-value" id="st-debt">—</div></div></div>
         </div>
         <div class="charts-grid-2">
-          <div class="chart-card"><div class="chart-title">📈 Doanh thu theo tháng</div><canvas id="revenueChart" height="100"></canvas></div>
-          <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><canvas id="classChart" height="100"></canvas></div>
+          <div class="chart-card"><div class="chart-title">📈 Doanh thu theo tháng</div><div style="position:relative;height:160px"><canvas id="revenueChart"></canvas></div></div>
+          <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><div style="position:relative;height:160px"><canvas id="classChart"></canvas></div></div>
         </div>
         <div class="charts-grid" style="grid-template-columns:1fr 1fr">
-          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><canvas id="classDonut" height="110"></canvas></div>
+          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><div style="position:relative;height:180px"><canvas id="classDonut"></canvas></div></div>
           <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div><div id="topClassList" class="top-class-list"></div></div>
         </div>
       </div>
