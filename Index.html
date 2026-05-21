@@ -61,8 +61,9 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 .stat-label { font-size: 11px; color: var(--gray-400); margin-bottom: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
 .stat-value { font-size: 24px; font-weight: 800; color: var(--gray-800); line-height: 1; }
 .stat-sub   { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
-.charts-grid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: 14px; margin-bottom: 14px; }
-.chart-card { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--gray-200); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.charts-grid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: 12px; margin-bottom: 12px; }
+.charts-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.chart-card { background: #fff; border-radius: 14px; padding: 12px 16px; border: 1px solid var(--gray-200); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--gray-800); display: flex; align-items: center; gap: 6px; }
 .table-card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); overflow: hidden; }
 .table-toolbar { padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--gray-200); flex-wrap: wrap; }
@@ -304,12 +305,14 @@ tr:hover td { background: var(--gray-50); }
           <div class="stat-card c-indigo"><div class="stat-icon indigo">💵</div><div><div class="stat-label">Tổng thu</div><div class="stat-value" id="st-rev">—</div><div class="stat-sub" id="st-rev-sub"></div></div></div>
           <div class="stat-card c-rose"><div class="stat-icon rose">⚠️</div><div><div class="stat-label">Tổng nợ</div><div class="stat-value" id="st-debt">—</div></div></div>
         </div>
-        <div class="charts-grid">
-          <div class="chart-card"><div class="chart-title">📈 Doanh thu theo tháng</div><canvas id="revenueChart" height="140"></canvas></div>
-          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><canvas id="classDonut" height="140"></canvas></div>
+        <div class="charts-grid-2">
+          <div class="chart-card"><div class="chart-title">📈 Doanh thu theo tháng</div><canvas id="revenueChart" height="100"></canvas></div>
+          <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><canvas id="classChart" height="100"></canvas></div>
+        </div>
+        <div class="charts-grid" style="grid-template-columns:1fr 1fr">
+          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><canvas id="classDonut" height="110"></canvas></div>
           <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div><div id="topClassList" class="top-class-list"></div></div>
         </div>
-        <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><canvas id="classChart" height="90"></canvas></div>
       </div>
 
       <!-- Students -->
@@ -694,7 +697,7 @@ function renderDashboard() {
   CHARTS.revenue = new Chart(document.getElementById('revenueChart'), {
     type: 'bar',
     data: { labels: mr.map(function(m) { return m.month; }), datasets: [{ label: 'Doanh thu', data: mr.map(function(m) { return m.amount; }), backgroundColor: mr.map(function(_, i) { return PALETTE[i % PALETTE.length] + 'cc'; }), borderRadius: 8, borderSkipped: false }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return (v/1e6).toFixed(0) + 'tr'; } }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } } }
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return (v/1e6).toFixed(0) + 'tr'; } }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } } }
   });
 
   var topKeys = Object.keys(classCount).sort(function(a, b) { return classCount[b] - classCount[a]; }).slice(0, 6);
@@ -702,7 +705,7 @@ function renderDashboard() {
   CHARTS.donut = new Chart(document.getElementById('classDonut'), {
     type: 'doughnut',
     data: { labels: topKeys, datasets: [{ data: topKeys.map(function(k) { return classCount[k]; }), backgroundColor: PALETTE.slice(0, 6), borderWidth: 2, borderColor: '#fff' }] },
-    options: { cutout: '62%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 8, boxWidth: 12 } } } }
+    options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 6, boxWidth: 10 } } } }
   });
 
   var cKeys = Object.keys(classCount).sort(function(a, b) { return classCount[b] - classCount[a]; });
@@ -710,7 +713,7 @@ function renderDashboard() {
   CHARTS.cls = new Chart(document.getElementById('classChart'), {
     type: 'bar',
     data: { labels: cKeys, datasets: [{ data: cKeys.map(function(k) { return classCount[k]; }), backgroundColor: cKeys.map(function(_, i) { return PALETTE[i % PALETTE.length] + 'bb'; }), borderRadius: 5, borderSkipped: false }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 5 }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false }, ticks: { font: { size: 11 } } } } }
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 5 }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
   });
 
   var tc = Object.keys(classRevMap).sort(function(a, b) { return classRevMap[b] - classRevMap[a]; }).slice(0, 8);
