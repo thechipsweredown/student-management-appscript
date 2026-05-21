@@ -279,6 +279,12 @@ tr:hover td { background: var(--gray-50); }
   <div id="main">
     <div id="header">
       <span id="page-title">Dashboard</span>
+      <div id="termPicker" style="display:none;align-items:center;gap:6px;margin-left:auto">
+        <span style="font-size:11px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em">Kỳ học:</span>
+        <select class="filter-select" id="globalTermSelect" onchange="onTermChange()" style="font-weight:700;border-color:var(--primary);color:var(--primary)">
+          <option value="">Tất cả</option>
+        </select>
+      </div>
       <div id="header-actions"></div>
     </div>
     <div id="content">
@@ -373,6 +379,7 @@ tr:hover td { background: var(--gray-50); }
         <div class="settings-tabs">
           <div class="settings-tab active" onclick="switchSettingsTab('tuition')">💰 Học phí theo lớp</div>
           <div class="settings-tab" onclick="switchSettingsTab('users')">👥 Phân quyền</div>
+          <div class="settings-tab" onclick="switchSettingsTab('terms')">📅 Kỳ học</div>
         </div>
         <div id="stab-tuition" class="settings-panel active">
           <div class="table-card">
@@ -392,6 +399,21 @@ tr:hover td { background: var(--gray-50); }
             <div style="overflow-x:auto">
               <table><thead><tr><th>Email</th><th>Vai trò</th><th>Tên hiển thị</th><th>Trạng thái</th><th></th></tr></thead>
               <tbody id="userTbody"></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div id="stab-terms" class="settings-panel">
+          <div class="table-card">
+            <div class="table-toolbar">
+              <span style="font-size:13px;font-weight:600">Danh sách kỳ học</span>
+              <button class="header-btn btn-primary" onclick="openAddTerm()" style="margin-left:auto">➕ Thêm kỳ</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table><thead><tr><th>Mã</th><th>Năm học</th><th>Kỳ</th><th>Bắt đầu</th><th>Kết thúc</th><th></th></tr></thead>
+              <tbody id="termTbody"></tbody></table>
+            </div>
+            <div style="padding:12px 16px;font-size:12px;color:var(--gray-400);border-top:1px solid var(--gray-100)">
+              Sau khi thêm kỳ mới, chọn kỳ ở thanh trên cùng để lọc dữ liệu theo kỳ đó.
             </div>
           </div>
         </div>
@@ -427,11 +449,44 @@ tr:hover td { background: var(--gray-50); }
   </div>
 </div>
 
+<!-- Modal: Add Term -->
+<div class="modal-overlay" id="modalTerm">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Thêm kỳ học</span>
+      <button class="modal-close" onclick="closeModal('modalTerm')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group span2">
+          <label>Năm học *</label>
+          <input class="form-control" id="t_school_year" placeholder="VD: 2024-2025">
+        </div>
+        <div class="form-group span2">
+          <label>Tên kỳ *</label>
+          <select class="form-control" id="t_term_name">
+            <option value="">-- Chọn --</option>
+            <option value="Kỳ 1">Kỳ 1</option>
+            <option value="Kỳ 2">Kỳ 2</option>
+            <option value="Hè">Hè</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Ngày bắt đầu</label><input class="form-control" id="t_start" type="date"></div>
+        <div class="form-group"><label>Ngày kết thúc</label><input class="form-control" id="t_end" type="date"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalTerm')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="saveTerm()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════
-var APP = { students: [], payments: [], classes: [], classGroups: [], stats: null, currentUser: null };
+var APP = { students: [], payments: [], classes: [], classGroups: [], terms: [], stats: null, currentUser: null, currentTermId: '' };
 var PAGE = { students: 1, payments: 1, pageSize: 30 };
 var CHARTS = {};
 var PALETTE = ['#e07b39','#0d9488','#4f46e5','#e11d48','#f59e0b','#10b981','#8b5cf6','#06b6d4','#ef4444','#84cc16'];
@@ -458,21 +513,14 @@ window.onload = function() {
 
       google.script.run
         .withSuccessHandler(function(data) {
-          APP.students    = data.students    || [];
-          APP.payments    = data.payments    || [];
-          APP.classes     = data.classes     || [];
-          APP.classGroups = data.classGroups || [];
-          APP.stats       = data.stats       || {};
-          if (data._timing) {
-            var t = data._timing;
-            console.log('[Panda] Read:' + t.read + 'ms | Compute:' + t.compute + 'ms | Total:' + t.total + 'ms | Client:' + (Date.now()-window._loadStart) + 'ms');
-          }
+          applyData(data);
           document.getElementById('loading').style.display = 'none';
+          populateTermPicker();
           initUI();
           renderDashboard();
         })
         .withFailureHandler(function(e) { showError(e.message); })
-        .getAllData();
+        .getAllData(APP.currentTermId);
     })
     .withFailureHandler(function(e) { showError(e.message); })
     .getCurrentUser();
@@ -482,24 +530,70 @@ function showError(msg) {
   document.getElementById('loading').innerHTML = '<div style="color:#c81e1e;font-size:14px">⚠️ Lỗi: ' + msg + '</div>';
 }
 
+function applyData(data) {
+  APP.students    = data.students    || [];
+  APP.payments    = data.payments    || [];
+  APP.classes     = data.classes     || [];
+  APP.classGroups = data.classGroups || [];
+  APP.terms       = data.terms       || [];
+  APP.stats       = data.stats       || {};
+  if (data._timing) {
+    var t = data._timing;
+    console.log('[Panda] Read:' + t.read + 'ms | Compute:' + t.compute + 'ms | Total:' + t.total + 'ms');
+  }
+}
+
+function populateTermPicker() {
+  var sel = document.getElementById('globalTermSelect');
+  sel.innerHTML = '<option value="">Tất cả</option>' + APP.terms.map(function(t) {
+    return '<option value="' + esc(t.id) + '">' + esc(t.term_name) + ' · ' + esc(t.school_year) + '</option>';
+  }).join('');
+  sel.value = APP.currentTermId;
+  var picker = document.getElementById('termPicker');
+  picker.style.display = APP.terms.length ? 'flex' : 'none';
+}
+
+function onTermChange() {
+  APP.currentTermId = document.getElementById('globalTermSelect').value;
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(data) {
+      applyData(data);
+      showLoading(false);
+      initUI();
+      var active = document.querySelector('.view.active');
+      var name = active ? active.id.replace('view-', '') : 'dashboard';
+      if (name === 'dashboard') renderDashboard();
+      else if (name === 'students') { PAGE.students = 1; renderStudentTable(); }
+      else if (name === 'payments') { PAGE.payments = 1; renderPaymentTable(); }
+      else if (name === 'classes')  renderClassGrid();
+    })
+    .withFailureHandler(function(e) { showLoading(false); toast('Lỗi tải dữ liệu: ' + e.message, 'error'); })
+    .getAllData(APP.currentTermId);
+}
+
 function initUI() {
-  var lopOpts = APP.classes.map(function(c) { return '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>'; }).join('');
-  document.getElementById('filterLop').innerHTML += lopOpts;
-  document.getElementById('filterPayClass').innerHTML += lopOpts;
+  var lopOpts = '<option value="">Tất cả lớp</option>' + APP.classes.map(function(c) {
+    return '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>';
+  }).join('');
+  document.getElementById('filterLop').innerHTML     = lopOpts;
+  document.getElementById('filterPayClass').innerHTML = lopOpts;
+  document.getElementById('db_filterLop').innerHTML  = lopOpts;
 
   var sLop = document.getElementById('s_classId');
   sLop.innerHTML = '<option value="">-- Không chọn lớp --</option>' + APP.classes.map(function(c) {
     return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
   }).join('');
 
-  var months = [...new Set(APP.payments.map(function(p) { return p.month; }).filter(Boolean))].sort().reverse();
-  var monthOpts = months.map(function(m) { return '<option value="' + m + '">' + m + '</option>'; }).join('');
-  document.getElementById('filterPayMonth').innerHTML += monthOpts;
-  document.getElementById('db_filterLop').innerHTML += lopOpts;
-  document.getElementById('db_filterMonth').innerHTML += monthOpts;
+  var months = APP.payments.map(function(p) { return p.month; }).filter(Boolean)
+    .filter(function(v, i, a) { return a.indexOf(v) === i; }).sort().reverse();
+  var monthOpts = '<option value="">Tất cả tháng</option>' + months.map(function(m) {
+    return '<option value="' + m + '">' + m + '</option>';
+  }).join('');
+  document.getElementById('filterPayMonth').innerHTML = monthOpts;
+  document.getElementById('db_filterMonth').innerHTML = monthOpts;
 
-  var dl = document.getElementById('studentDatalist');
-  dl.innerHTML = APP.students.map(function(s) {
+  document.getElementById('studentDatalist').innerHTML = APP.students.map(function(s) {
     return '<option value="' + esc(s.name) + '" data-id="' + esc(s.id) + '">';
   }).join('');
 }
@@ -837,11 +931,12 @@ function backToClassList() {
 // ═══════════════════════════════════════════════
 function switchSettingsTab(tab) {
   document.querySelectorAll('.settings-tab').forEach(function(el, i) {
-    el.classList.toggle('active', ['tuition','users'][i] === tab);
+    el.classList.toggle('active', ['tuition','users','terms'][i] === tab);
   });
   document.querySelectorAll('.settings-panel').forEach(function(el) { el.classList.remove('active'); });
   document.getElementById('stab-' + tab).classList.add('active');
-  if (tab === 'users') loadUsers();
+  if (tab === 'users')  loadUsers();
+  if (tab === 'terms')  renderTermSettings();
 }
 
 function renderSettings() {
@@ -934,6 +1029,71 @@ function confirmDeleteUser(email) {
     .withSuccessHandler(function(r) { if (r.success) { loadUsers(); toast('Đã xoá', 'success'); } })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .deleteUser(email);
+}
+
+// ═══════════════════════════════════════════════
+//  TERMS / KỲ HỌC
+// ═══════════════════════════════════════════════
+function renderTermSettings() {
+  var tbody = APP.terms.length
+    ? APP.terms.map(function(t) {
+        return '<tr>' +
+          '<td style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(t.id) + '</td>' +
+          '<td style="font-weight:600">' + esc(t.school_year) + '</td>' +
+          '<td><span class="badge badge-blue">' + esc(t.term_name) + '</span></td>' +
+          '<td style="font-size:12px">' + esc(t.start_date || '—') + '</td>' +
+          '<td style="font-size:12px">' + esc(t.end_date   || '—') + '</td>' +
+          '<td><button class="act-btn del" onclick=\'confirmDeleteTerm("' + esc(t.id) + '","' + esc(t.term_name) + ' · ' + esc(t.school_year) + '")\'>🗑️</button></td>' +
+        '</tr>';
+      }).join('')
+    : '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--gray-400)">Chưa có kỳ học nào. Thêm kỳ đầu tiên!</td></tr>';
+  document.getElementById('termTbody').innerHTML = tbody;
+}
+
+function openAddTerm() {
+  ['t_school_year','t_term_name','t_start','t_end'].forEach(function(id) {
+    document.getElementById(id).value = '';
+  });
+  openModal('modalTerm');
+}
+
+function saveTerm() {
+  var d = {
+    school_year: document.getElementById('t_school_year').value.trim(),
+    term_name  : document.getElementById('t_term_name').value.trim(),
+    start_date : document.getElementById('t_start').value,
+    end_date   : document.getElementById('t_end').value
+  };
+  if (!d.school_year || !d.term_name) { toast('Nhập năm học và tên kỳ!', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) { toast('Lỗi: ' + (r.error || ''), 'error'); return; }
+      closeModal('modalTerm');
+      APP.terms.push({ id: r.id, school_year: d.school_year, term_name: d.term_name, start_date: d.start_date, end_date: d.end_date });
+      renderTermSettings();
+      populateTermPicker();
+      toast('Đã thêm kỳ ' + d.term_name + ' · ' + d.school_year, 'success');
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .addTerm(d);
+}
+
+function confirmDeleteTerm(id, label) {
+  if (!confirm('Xoá kỳ "' + label + '"?\nDữ liệu enrollment liên quan sẽ mất liên kết kỳ.')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r.success) { toast('Không tìm thấy kỳ', 'error'); return; }
+      APP.terms = APP.terms.filter(function(t) { return t.id !== id; });
+      if (APP.currentTermId === id) {
+        APP.currentTermId = '';
+        document.getElementById('globalTermSelect').value = '';
+      }
+      renderTermSettings();
+      populateTermPicker();
+      toast('Đã xoá kỳ', 'success');
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .deleteTerm(id);
 }
 
 // ═══════════════════════════════════════════════
@@ -1031,7 +1191,8 @@ function saveStudent() {
     gender  : document.getElementById('s_gender').value,
     status  : document.getElementById('s_status').value,
     address : document.getElementById('s_address').value,
-    classId : document.getElementById('s_classId').value
+    classId : document.getElementById('s_classId').value,
+    termId  : APP.currentTermId
   };
   var isEdit = !!d.id;
   closeModal('modalStudent');
@@ -1118,7 +1279,7 @@ function savePayment() {
   if (!month) { toast('Chọn tháng thanh toán!', 'error'); return; }
 
   var cls = APP.classes.find(function(c) { return c.id === classId; });
-  var d = { studentId: s.id, classId: classId, month: month, amount: amount, method: document.getElementById('p_method').value, staff: document.getElementById('p_staff').value, note: document.getElementById('p_note').value };
+  var d = { studentId: s.id, classId: classId, termId: APP.currentTermId, month: month, amount: amount, method: document.getElementById('p_method').value, staff: document.getElementById('p_staff').value, note: document.getElementById('p_note').value };
 
   closeModal('modalPayment');
   showLoading(true);

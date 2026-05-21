@@ -75,7 +75,7 @@ function getCurrentUser() {
 }
 
 // ── getAllData ────────────────────────────────────────────────
-function getAllData() {
+function getAllData(termId) {
   var T = { start: Date.now() };
 
   var rawStudents = parseSheet('students');
@@ -86,6 +86,13 @@ function getAllData() {
   var rawPays     = parseSheet('payments');
   var rawLop      = getSheet('DS Lớp').getDataRange().getValues();
   T.read = Date.now();
+
+  // Lọc enrollment theo kỳ nếu có termId
+  if (termId) {
+    rawEnroll = rawEnroll.filter(function(e) {
+      return String(e.term_id || '') === String(termId);
+    });
+  }
 
   // ── Lookup maps ──────────────────────────────────────────
   var classMap = {};
@@ -249,6 +256,7 @@ function getAllData() {
     payments   : payments,
     classes    : classes,
     classGroups: classGroups,
+    terms      : getTerms(),
     stats: {
       totalStudents : students.length,
       activeStudents: activeStudents,
@@ -269,7 +277,7 @@ function addStudent(d) {
   sheet.appendRow([id, d.name, d.dob ? new Date(d.dob) : '', d.gender || '', '', d.status || 'Đang học', d.address || '', new Date()]);
   if (d.classId) {
     var eid = genId('enrollments', 'EN');
-    getSheet('enrollments').appendRow([eid, id, d.classId, new Date(), '', d.status || 'Đang học']);
+    getSheet('enrollments').appendRow([eid, id, d.classId, d.termId || '', new Date(), '', d.status || 'Đang học', '']);
   }
   return { success: true, id: id };
 }
@@ -307,13 +315,14 @@ function addPayment(d) {
   for (var i = 1; i < enrollData.length; i++) {
     var er = {};
     eHdr.forEach(function(h, ci) { er[h] = enrollData[i][ci]; });
-    if (String(er.student_id) === String(d.studentId) && String(er.class_id) === String(d.classId)) {
+    var termMatch = !d.termId || String(er.term_id || '') === String(d.termId);
+    if (String(er.student_id) === String(d.studentId) && String(er.class_id) === String(d.classId) && termMatch) {
       eid = String(er.id); break;
     }
   }
   if (!eid) {
     eid = genId('enrollments', 'EN');
-    enrollSheet.appendRow([eid, d.studentId, d.classId, new Date(), '', 'Đang học']);
+    enrollSheet.appendRow([eid, d.studentId, d.classId, d.termId || '', new Date(), '', 'Đang học', '']);
   }
 
   // 2. Find class tuition
@@ -444,6 +453,48 @@ function deleteUser(email) {
   var eCol    = headers.indexOf('email');
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][eCol]).toLowerCase() === String(email).toLowerCase()) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+// ── Terms / Kỳ học ────────────────────────────────────────────
+function getTerms() {
+  var sheet = getSheet('terms');
+  if (!sheet) return [];
+  return parseSheet('terms').map(function(t) {
+    return {
+      id         : String(t.id         || ''),
+      school_year: String(t.school_year || ''),
+      term_name  : String(t.term_name   || ''),
+      start_date : fmtDate(t.start_date),
+      end_date   : fmtDate(t.end_date)
+    };
+  });
+}
+
+function addTerm(d) {
+  var sheet = getSheet('terms');
+  if (!sheet) return { success: false, error: 'Sheet "terms" chưa tồn tại trong Spreadsheet' };
+  var id = genId('terms', 'TERM');
+  sheet.appendRow([
+    id, d.school_year, d.term_name,
+    d.start_date ? new Date(d.start_date) : '',
+    d.end_date   ? new Date(d.end_date)   : ''
+  ]);
+  return { success: true, id: id };
+}
+
+function deleteTerm(id) {
+  var sheet = getSheet('terms');
+  if (!sheet) return { success: false };
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idCol = hdr.indexOf('id');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(id)) {
       sheet.deleteRow(i + 1);
       return { success: true };
     }
