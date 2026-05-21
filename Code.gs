@@ -16,6 +16,24 @@ function getSheet(name) {
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
 }
 
+// Trả về 'YYYY-MM' từ serial number / Date / string. Trống nếu không parse được.
+function _normalizeMonth(v) {
+  if (!v && v !== 0) return '';
+  if (typeof v === 'number' && v > 1000) {
+    var dt = new Date(Math.round((v - 25569) * 86400000));
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+  }
+  if (v instanceof Date) {
+    return v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0');
+  }
+  var s = String(v).trim();
+  var m = s.match(/^(\d{4})-(\d{1,2})/);
+  if (m) return m[1] + '-' + m[2].padStart(2, '0');
+  m = s.match(/^(\d{1,2})\/(\d{4})$/);  // 5/2026
+  if (m) return m[2] + '-' + m[1].padStart(2, '0');
+  return s;
+}
+
 function fmtDate(d) {
   if (d instanceof Date) return Utilities.formatDate(d, TIMEZONE, 'dd/MM/yyyy');
   // Date serial từ Sheets API batchGet (UNFORMATTED_VALUE)
@@ -205,6 +223,11 @@ function getAllData(termId) {
     if (!sid) return;
     if (!enrollByStudent[sid]) enrollByStudent[sid] = [];
     enrollByStudent[sid].push(e);
+  });
+
+  // Normalize cột month: nếu là serial number (do cell bị format kiểu Date) → 'YYYY-MM'
+  rawBills.forEach(function(b) {
+    b.month = _normalizeMonth(b.month);
   });
 
   var billByEnroll = {};
@@ -605,7 +628,7 @@ function addPayment(d) {
     if (matches[m].getColumn() !== enrCol) continue;
     // Đọc nguyên 1 row chứa match (1 API call mỗi match nhưng thường <5 matches/enrollment)
     var rowVals = billSheet.getRange(r, 1, 1, bHdr.length).getValues()[0];
-    if (String(rowVals[monthCol - 1]) === String(d.month)) {
+    if (_normalizeMonth(rowVals[monthCol - 1]) === _normalizeMonth(d.month)) {
       bid = String(rowVals[idCol - 1]);
       billRow = r;
       prevPaid = parseFloat(rowVals[paidCol - 1]) || 0;
