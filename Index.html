@@ -539,7 +539,17 @@ function applyData(data) {
   APP.stats       = data.stats       || {};
   if (data._timing) {
     var t = data._timing;
-    console.log('[Panda] Read:' + t.read + 'ms | Compute:' + t.compute + 'ms | Total:' + t.total + 'ms');
+    console.group('%c[Panda] Load ' + t.total + 'ms (read ' + t.read + 'ms · compute ' + t.compute + 'ms · client +' + (Date.now() - window._loadStart - t.total) + 'ms)', 'color:#e07b39;font-weight:bold');
+    if (t.steps && t.steps.length) {
+      var prev = 0;
+      t.steps.forEach(function(s) {
+        var delta = s.ms - prev;
+        var bar = delta > 500 ? '🔴' : delta > 200 ? '🟡' : '🟢';
+        console.log(bar + ' +' + delta + 'ms \t' + s.label + '\t(cumul ' + s.ms + 'ms)');
+        prev = s.ms;
+      });
+    }
+    console.groupEnd();
   }
 }
 

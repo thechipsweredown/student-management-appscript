@@ -76,15 +76,16 @@ function getCurrentUser() {
 
 // ── getAllData ────────────────────────────────────────────────
 function getAllData(termId) {
-  var T = { start: Date.now() };
+  var T = { start: Date.now(), steps: [] };
+  function mark(label) { T.steps.push({ label: label, ms: Date.now() - T.start }); }
 
-  var rawStudents = parseSheet('students');
-  var rawEnroll   = parseSheet('enrollments');
-  var rawClasses  = parseSheet('classes');
-  var rawTeachers = parseSheet('teachers');
-  var rawBills    = parseSheet('monthly_bills');
-  var rawPays     = parseSheet('payments');
-  var rawLop      = getSheet('DS Lớp').getDataRange().getValues();
+  var rawStudents = parseSheet('students');   mark('read:students('   + rawStudents.length + ')');
+  var rawEnroll   = parseSheet('enrollments'); mark('read:enrollments(' + rawEnroll.length + ')');
+  var rawClasses  = parseSheet('classes');     mark('read:classes('    + rawClasses.length  + ')');
+  var rawTeachers = parseSheet('teachers');    mark('read:teachers('   + rawTeachers.length + ')');
+  var rawBills    = parseSheet('monthly_bills'); mark('read:bills('    + rawBills.length    + ')');
+  var rawPays     = parseSheet('payments');    mark('read:payments('   + rawPays.length     + ')');
+  var rawLop      = getSheet('DS Lớp').getDataRange().getValues(); mark('read:DS_Lop');
   T.read = Date.now();
 
   // Lọc enrollment theo kỳ nếu có termId
@@ -92,6 +93,7 @@ function getAllData(termId) {
     rawEnroll = rawEnroll.filter(function(e) {
       return String(e.term_id || '') === String(termId);
     });
+    mark('filter:enrollments_by_term(' + rawEnroll.length + ')');
   }
 
   // ── Lookup maps ──────────────────────────────────────────
@@ -125,6 +127,7 @@ function getAllData(termId) {
 
   var studentMap = {};
   rawStudents.forEach(function(s) { if (s.id) studentMap[String(s.id)] = s; });
+  mark('compute:lookup_maps');
 
   // ── Parse students ────────────────────────────────────────
   var students = rawStudents.filter(function(s) {
@@ -168,6 +171,8 @@ function getAllData(termId) {
     };
   });
 
+  mark('compute:students(' + students.length + ')');
+
   // ── Parse payments ────────────────────────────────────────
   var payments = rawPays.filter(function(p) {
     return p.date instanceof Date || (p.date && String(p.date).match(/\d/));
@@ -196,6 +201,7 @@ function getAllData(termId) {
     var db = b.date.split('/').reverse().join('');
     return da > db ? -1 : 1;
   });
+  mark('compute:payments(' + payments.length + ')');
 
   // ── Classes list ──────────────────────────────────────────
   var classes = rawClasses.map(function(c) {
@@ -214,6 +220,8 @@ function getAllData(termId) {
       count  : count
     };
   });
+
+  mark('compute:classes(' + classes.length + ')');
 
   // ── DS Lớp classGroups ────────────────────────────────────
   var classGroups = [];
@@ -250,6 +258,7 @@ function getAllData(termId) {
     if (p.className) classRevMap[p.className] = (classRevMap[p.className] || 0) + p.amount;
   });
 
+  mark('done');
   T.done = Date.now();
   return {
     students   : students,
@@ -266,7 +275,7 @@ function getAllData(termId) {
       monthlyRevenue: monthlyRevenue,
       classRevenue  : classRevMap
     },
-    _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read }
+    _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
   };
 }
 
