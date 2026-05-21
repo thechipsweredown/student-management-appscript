@@ -628,9 +628,20 @@ function addPayment(d) {
     var pCol = bHdr.indexOf('amount_paid') + 1;
     var dCol = bHdr.indexOf('debt') + 1;
     var sCol = bHdr.indexOf('status') + 1;
-    billSheet.getRange(billRow, pCol).setValue(newPaid);
-    billSheet.getRange(billRow, dCol).setValue(newDebt);
-    billSheet.getRange(billRow, sCol).setValue(newStatus);
+    // Nếu 3 cột liền nhau (amount_paid, debt, status thường adjacent) → 1 API call
+    var minC = Math.min(pCol, dCol, sCol);
+    var maxC = Math.max(pCol, dCol, sCol);
+    if (maxC - minC === 2) {
+      var rowVals = [];
+      for (var ci = minC; ci <= maxC; ci++) {
+        rowVals.push(ci === pCol ? newPaid : ci === dCol ? newDebt : newStatus);
+      }
+      billSheet.getRange(billRow, minC, 1, 3).setValues([rowVals]);
+    } else {
+      billSheet.getRange(billRow, pCol).setValue(newPaid);
+      billSheet.getRange(billRow, dCol).setValue(newDebt);
+      billSheet.getRange(billRow, sCol).setValue(newStatus);
+    }
   }
 
   // 4. Write payment (student_id, class_id lưu thẳng để JOIN không phụ thuộc bill chain)
