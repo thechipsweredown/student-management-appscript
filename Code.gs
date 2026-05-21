@@ -555,6 +555,47 @@ function deleteUser(email) {
   return { success: false };
 }
 
+// ── One-shot: gán term_id cho enrollments chưa có ────────────
+// Chạy 1 lần từ Apps Script Editor: chọn hàm này → Run
+function backfillEnrollmentTerm() {
+  var termSheet   = getSheet('terms');
+  var enrollSheet = getSheet('enrollments');
+  if (!termSheet || !enrollSheet) {
+    Logger.log('Không tìm thấy sheet terms hoặc enrollments');
+    return;
+  }
+
+  // Lấy tất cả terms, chọn term đầu tiên làm default
+  var terms = parseSheet('terms');
+  if (!terms.length) {
+    Logger.log('Chưa có kỳ học nào trong sheet terms');
+    return;
+  }
+
+  // Tìm term theo tên nếu muốn chỉ định, mặc định lấy cái đầu tiên
+  var defaultTerm = terms[0];
+  Logger.log('Dùng kỳ: ' + defaultTerm.term_name + ' · ' + defaultTerm.school_year + ' (id: ' + defaultTerm.id + ')');
+
+  // Tìm cột term_id trong enrollments
+  var enrollData = enrollSheet.getDataRange().getValues();
+  var hdr = enrollData[0].map(function(h) { return String(h).trim(); });
+  var termIdCol = hdr.indexOf('term_id');
+  if (termIdCol === -1) {
+    Logger.log('Không tìm thấy cột term_id trong enrollments. Hãy thêm cột này trước.');
+    return;
+  }
+
+  var updated = 0;
+  for (var i = 1; i < enrollData.length; i++) {
+    var currentTermId = String(enrollData[i][termIdCol] || '').trim();
+    if (!currentTermId) {
+      enrollSheet.getRange(i + 1, termIdCol + 1).setValue(defaultTerm.id);
+      updated++;
+    }
+  }
+  Logger.log('Đã cập nhật ' + updated + ' enrollments → term_id = ' + defaultTerm.id);
+}
+
 // ── Terms / Kỳ học ────────────────────────────────────────────
 function getTerms() {
   var sheet = getSheet('terms');
