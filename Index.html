@@ -322,6 +322,10 @@ tr:hover td { background: var(--gray-50); }
           <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><div style="position:relative;height:180px"><canvas id="classDonut"></canvas></div></div>
           <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div><div id="topClassList" class="top-class-list"></div></div>
         </div>
+        <div class="chart-card" style="margin-bottom:12px">
+          <div class="chart-title">📋 Điểm Danh 7 Ngày</div>
+          <div style="position:relative;height:180px"><canvas id="attChart"></canvas></div>
+        </div>
       </div>
 
       <!-- Students -->
@@ -658,6 +662,7 @@ window.onload = function() {
           populateTermPicker();
           initUI();
           renderDashboard();
+          loadAttChart();
         })
         .withFailureHandler(function(e) { showError(e.message); })
         .getAllData(APP.currentTermId);
@@ -713,7 +718,7 @@ function onTermChange() {
       initUI();
       var active = document.querySelector('.view.active');
       var name = active ? active.id.replace('view-', '') : 'dashboard';
-      if (name === 'dashboard') renderDashboard();
+      if (name === 'dashboard') { renderDashboard(); loadAttChart(); }
       else if (name === 'students') { PAGE.students = 1; renderStudentTable(); }
       else if (name === 'payments') { PAGE.payments = 1; renderPaymentTable(); }
       else if (name === 'classes')  renderClassGrid();
@@ -869,6 +874,41 @@ function renderDashboard() {
       '<div class="top-class-bar-wrap"><div class="top-class-bar" style="width:' + pct + '%;background:' + PALETTE[i % PALETTE.length] + '"></div></div>' +
       '<span style="width:80px;text-align:right;font-size:11px;font-weight:600">' + fmtMoney(classRevMap[c]) + '</span></div>';
   }).join('') || '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">Không có dữ liệu</div>';
+}
+
+function loadAttChart() {
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      if (CHARTS.att) CHARTS.att.destroy();
+      var labels   = rows.map(function(r) { return r.date; });
+      var present  = rows.map(function(r) { return r.present; });
+      var absent   = rows.map(function(r) { return r.absent; });
+      var late     = rows.map(function(r) { return r.late; });
+      var canvas   = document.getElementById('attChart');
+      if (!canvas) return;
+      CHARTS.att = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Có mặt', data: present, borderColor: '#15803d', backgroundColor: 'rgba(21,128,61,.10)', fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
+            { label: 'Vắng',   data: absent,  borderColor: '#b91c1c', backgroundColor: 'rgba(185,28,28,.08)', fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
+            { label: 'Đi muộn',data: late,    borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,.08)',  fill: true, tension: .35, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'top', labels: { font: { size: 12 }, padding: 14, boxWidth: 14 } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 4 }, grid: { color: '#f3f4f6' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    })
+    .withFailureHandler(function() {})
+    .getAttendanceLast7Days();
 }
 
 // ═══════════════════════════════════════════════

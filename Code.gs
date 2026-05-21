@@ -634,6 +634,42 @@ function getSessions(classId) {
   }).sort(function(a, b) { return a.date < b.date ? 1 : -1; });
 }
 
+function getAttendanceLast7Days() {
+  var today    = new Date();
+  var sessions = parseSheet('sessions');
+  var attRows  = parseSheet('attendance');
+
+  var days = [];
+  for (var i = 6; i >= 0; i--) {
+    var d = new Date(today.getTime());
+    d.setDate(d.getDate() - i);
+    days.push(Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd'));
+  }
+
+  var sessionDate = {};
+  sessions.forEach(function(s) {
+    var raw = s.date;
+    var iso = raw instanceof Date ? Utilities.formatDate(raw, TIMEZONE, 'yyyy-MM-dd') : String(raw).substring(0, 10);
+    if (days.indexOf(iso) !== -1) sessionDate[String(s.id || '')] = iso;
+  });
+
+  var counts = {};
+  days.forEach(function(d) { counts[d] = { present: 0, absent: 0, late: 0 }; });
+
+  attRows.forEach(function(a) {
+    var date = sessionDate[String(a.session_id || '')];
+    if (!date) return;
+    var st = String(a.status || '');
+    if (st === 'Có mặt')   counts[date].present++;
+    else if (st === 'Vắng')    counts[date].absent++;
+    else if (st === 'Đi muộn') counts[date].late++;
+  });
+
+  return days.map(function(d) {
+    return { date: d.substring(5), present: counts[d].present, absent: counts[d].absent, late: counts[d].late };
+  });
+}
+
 // Chỉ đọc, không tạo mới — dùng khi load form điểm danh
 function getSessionOnly(classId, dateStr) {
   var sheet = getSheet('sessions');
