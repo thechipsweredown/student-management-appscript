@@ -180,6 +180,16 @@ function getAllData(termId) {
 
   var studentMap = {};
   rawStudents.forEach(function(s) { if (s.id) studentMap[String(s.id)] = s; });
+
+  // Tổng tiền đã đóng theo student+class trực tiếp từ payments (không phụ thuộc bill chain)
+  var paidByStudentClass = {};
+  rawPays.forEach(function(p) {
+    var sid = String(p.student_id || '');
+    var cid = String(p.class_id   || '');
+    if (!sid || !cid) return;
+    var key = sid + '|' + cid;
+    paidByStudentClass[key] = (paidByStudentClass[key] || 0) + (parseFloat(p.amount) || 0);
+  });
   mark('compute:lookup_maps');
 
   // ── Parse students ────────────────────────────────────────
@@ -190,10 +200,13 @@ function getAllData(termId) {
     var classes = enrolls.map(function(e) {
       var cls     = classMap[String(e.class_id || '')] || {};
       var teacher = teacherMap[String(cls.teacher_id || '')] || {};
-      var bills   = billByEnroll[String(e.id || '')] || [];
-      var due  = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_due)  || 0); }, 0);
-      var paid = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
-      var debt = bills.reduce(function(a, b) { return a + (parseFloat(b.debt)        || 0); }, 0);
+      var bills     = billByEnroll[String(e.id || '')] || [];
+      var billDue   = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_due) || 0); }, 0);
+      var billDebt  = bills.reduce(function(a, b) { return a + (parseFloat(b.debt)       || 0); }, 0);
+      // Đã đóng: ưu tiên tổng từ payments trực tiếp (đầy đủ hơn bill chain)
+      var paidKey   = String(s.id) + '|' + String(e.class_id || '');
+      var paid      = paidByStudentClass[paidKey] || bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
+      var debt      = billDue > 0 ? Math.max(0, billDue - paid) : 0;
       return {
         enrollId    : String(e.id || ''),
         classId     : String(e.class_id || ''),
@@ -201,7 +214,7 @@ function getAllData(termId) {
         teacherName : String(teacher.name || ''),
         tuition     : parseFloat(cls.tuition_per_month) || 0,
         enrollStatus: String(e.status || ''),
-        billDue     : due,
+        billDue     : billDue,
         billPaid    : paid,
         billDebt    : debt
       };
