@@ -865,6 +865,7 @@ function applyData(data) {
   APP.classes     = data.classes     || [];
   APP.classGroups = data.classGroups || [];
   APP.teachers    = data.teachers    || APP.teachers || [];
+  APP.parents     = data.parents     || APP.parents  || [];
   APP.terms       = data.terms       || [];
   APP.stats       = data.stats       || {};
   APP._phase      = data._phase      || 'full';
@@ -2284,31 +2285,31 @@ function saveStudent() {
     parentId : document.getElementById('s_parentId').value
   };
   var isEdit = !!d.id;
-  closeModal('modalStudent');
-  showLoading(true);
-  var onSaved = function(sid) {
-    uploadAvatarIfNeeded(sid, function() {
-      showLoading(false);
-      renderStudentTable();
-      toast((isEdit ? 'Đã cập nhật ' : 'Đã thêm ') + name + ' ✓', 'success');
-    });
-  };
   if (isEdit) {
-    google.script.run.withSuccessHandler(function(r) {
-      if (!r.success) { showLoading(false); toast('Lỗi: ' + (r.error || ''), 'error'); return; }
-      var idx = APP.students.findIndex(function(s) { return s.id === d.id; });
-      if (idx > -1) {
-        var dobFmt = d.dob ? (function(){ var p=d.dob.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; })() : '';
-        Object.assign(APP.students[idx], { name: d.name, dob: dobFmt, gender: d.gender, status: d.status, address: d.address });
-      }
-      onSaved(d.id);
-    }).withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); }).updateStudent(d);
+    // Optimistic update: cập nhật local ngay, đóng modal ngay, server save chạy ngầm
+    var dobFmt = d.dob ? (function(){ var p=d.dob.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; })() : '';
+    var idx = APP.students.findIndex(function(s) { return s.id === d.id; });
+    if (idx > -1) Object.assign(APP.students[idx], { name: d.name, dob: dobFmt, gender: d.gender, status: d.status, address: d.address });
+    closeModal('modalStudent');
+    renderStudentTable();
+    toast('Đã cập nhật ' + name + ' ✓', 'success');
+    // Avatar upload cần ID đã có sẵn, chạy ngầm sau khi server confirm
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r.success) { toast('Lỗi lưu: ' + (r.error || ''), 'error'); return; }
+        uploadAvatarIfNeeded(d.id, function() { if (document.getElementById('s_avatarFile')._hasNew) renderStudentTable(); });
+      })
+      .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+      .updateStudent(d);
   } else {
+    // Add: cần server trả về ID mới nên vẫn phải đợi, nhưng đóng modal ngay
+    closeModal('modalStudent');
+    showLoading(true);
     google.script.run.withSuccessHandler(function(r) {
       if (!r.success) { showLoading(false); toast('Lỗi thêm học sinh', 'error'); return; }
       d.id = r.id; d.classes = []; d.primaryClass = ''; d.primaryTeacher = ''; d.totalDebt = 0; d.photoUrl = '';
       APP.students.unshift(d);
-      onSaved(r.id);
+      uploadAvatarIfNeeded(r.id, function() { showLoading(false); renderStudentTable(); toast('Đã thêm ' + name + ' ✓', 'success'); });
     }).withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); }).addStudent(d);
   }
 }

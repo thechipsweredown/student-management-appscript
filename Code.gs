@@ -435,12 +435,13 @@ function getQuickData(termId) {
   var T = { start: Date.now(), steps: [] };
   function mark(label) { T.steps.push({ label: label, ms: Date.now() - T.start }); }
 
-  var raw = batchReadSheets(['students', 'classes', 'teachers', 'DS Lớp', 'terms', 'sessions', 'attendance']);
+  var raw = batchReadSheets(['students', 'classes', 'teachers', 'parents', 'DS Lớp', 'terms', 'sessions', 'attendance']);
   mark('batchRead');
 
   var rawStudents = parseFromValues(raw['students']);
   var rawClasses  = parseFromValues(raw['classes']);
   var rawTeachers = parseFromValues(raw['teachers']);
+  var rawParents  = parseFromValues(raw['parents']);
   var rawTermsArr = parseFromValues(raw['terms']);
   var rawLop      = raw['DS Lớp'] || [];
   mark('parse');
@@ -508,6 +509,7 @@ function getQuickData(termId) {
   T.done = Date.now();
   return {
     students: students, payments: [], classes: classes, classGroups: classGroups,
+    parents: rawParents.map(function(p) { return { id: String(p.id||''), name: String(p.name||''), phone: String(p.phone||''), email: String(p.email||''), address: String(p.address||'') }; }),
     teachers: rawTeachers.map(function(t) { return { id: String(t.id||''), name: String(t.name||''), status: String(t.status||'') }; }),
     terms: rawTermsArr.map(function(t) { return { id: String(t.id||''), school_year: String(t.school_year||''), term_name: String(t.term_name||''), start_date: fmtDate(t.start_date), end_date: fmtDate(t.end_date) }; }),
     att7days: att7days,
