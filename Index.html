@@ -331,7 +331,16 @@ tr:hover td { background: var(--gray-50); }
           <div class="stat-card c-rose"><div class="stat-icon rose">⚠️</div><div><div class="stat-label">Tổng nợ</div><div class="stat-value" id="st-debt">—</div></div></div>
         </div>
         <div class="charts-grid-2">
-          <div class="chart-card"><div class="chart-title">📈 Doanh thu theo tháng</div><div style="position:relative;height:160px"><canvas id="revenueChart"></canvas></div></div>
+          <div class="chart-card">
+            <div class="chart-title" style="justify-content:space-between">
+              <span id="revChartTitle">📈 Doanh thu theo tháng</span>
+              <div style="display:flex;gap:4px">
+                <button id="revTab_rev" onclick="switchRevTab('rev')" style="padding:3px 10px;border-radius:20px;border:1.5px solid var(--primary);font-size:11px;font-weight:700;cursor:pointer;background:var(--primary);color:#fff">Doanh thu</button>
+                <button id="revTab_debt" onclick="switchRevTab('debt')" style="padding:3px 10px;border-radius:20px;border:1.5px solid var(--danger);font-size:11px;font-weight:700;cursor:pointer;background:#fff;color:var(--danger)">Nợ</button>
+              </div>
+            </div>
+            <div style="position:relative;height:160px"><canvas id="revenueChart"></canvas></div>
+          </div>
           <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><div style="position:relative;height:160px"><canvas id="classChart"></canvas></div></div>
         </div>
         <div class="charts-grid" style="grid-template-columns:1fr 1fr">
@@ -647,6 +656,7 @@ tr:hover td { background: var(--gray-50); }
 //  STATE
 // ═══════════════════════════════════════════════
 var APP = { students: [], payments: [], classes: [], classGroups: [], terms: [], teachers: [], parents: [], stats: null, currentUser: null, currentTermId: '' };
+var REV_TAB = 'rev';
 var PAGE = { students: 1, payments: 1, pageSize: 30 };
 var CHARTS = {};
 var PALETTE = ['#e07b39','#0d9488','#4f46e5','#e11d48','#f59e0b','#10b981','#8b5cf6','#06b6d4','#ef4444','#84cc16'];
@@ -858,11 +868,15 @@ function renderDashboard() {
   var classRevMap = {};
   payments.forEach(function(p) { if (p.className) classRevMap[p.className] = (classRevMap[p.className] || 0) + p.amount; });
 
+  var revData  = APP.stats && APP.stats.monthlyRevenue ? APP.stats.monthlyRevenue : mr;
+  var debtData = APP.stats && APP.stats.monthlyDebt    ? APP.stats.monthlyDebt    : [];
+  var chartSrc = REV_TAB === 'debt' ? debtData : revData;
+  var barColor = REV_TAB === 'debt' ? '#b91c1c' : null;
   if (CHARTS.revenue) CHARTS.revenue.destroy();
   CHARTS.revenue = new Chart(document.getElementById('revenueChart'), {
     type: 'bar',
-    data: { labels: mr.map(function(m) { return m.month; }), datasets: [{ label: 'Doanh thu', data: mr.map(function(m) { return m.amount; }), backgroundColor: mr.map(function(_, i) { return PALETTE[i % PALETTE.length] + 'cc'; }), borderRadius: 8, borderSkipped: false }] },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return (v/1e6).toFixed(0) + 'tr'; } }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } } }
+    data: { labels: chartSrc.map(function(m) { return m.month; }), datasets: [{ label: REV_TAB === 'debt' ? 'Nợ' : 'Doanh thu', data: chartSrc.map(function(m) { return m.amount; }), backgroundColor: chartSrc.map(function(_, i) { return barColor ? barColor + 'cc' : PALETTE[i % PALETTE.length] + 'cc'; }), borderRadius: 8, borderSkipped: false }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return (v/1e6).toFixed(1) + 'tr'; } }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } } }
   });
 
   var topKeys = Object.keys(classCount).sort(function(a, b) { return classCount[b] - classCount[a]; }).slice(0, 6);
@@ -890,6 +904,17 @@ function renderDashboard() {
       '<div class="top-class-bar-wrap"><div class="top-class-bar" style="width:' + pct + '%;background:' + PALETTE[i % PALETTE.length] + '"></div></div>' +
       '<span style="width:80px;text-align:right;font-size:11px;font-weight:600">' + fmtMoney(classRevMap[c]) + '</span></div>';
   }).join('') || '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">Không có dữ liệu</div>';
+}
+
+function switchRevTab(tab) {
+  REV_TAB = tab;
+  var isRev = tab === 'rev';
+  document.getElementById('revTab_rev').style.background  = isRev ? 'var(--primary)' : '#fff';
+  document.getElementById('revTab_rev').style.color       = isRev ? '#fff' : 'var(--primary)';
+  document.getElementById('revTab_debt').style.background = isRev ? '#fff' : 'var(--danger)';
+  document.getElementById('revTab_debt').style.color      = isRev ? 'var(--danger)' : '#fff';
+  document.getElementById('revChartTitle').textContent    = isRev ? '📈 Doanh thu theo tháng' : '⚠️ Nợ theo tháng';
+  renderDashboard();
 }
 
 function loadAttChart() {

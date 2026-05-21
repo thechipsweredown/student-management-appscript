@@ -327,6 +327,19 @@ function getAllData(termId) {
     return { month: m, amount: monthlyMap[m] };
   });
 
+  var debtMonthMap = {};
+  rawEnroll.forEach(function(e) {
+    var bills = (billByEnroll[String(e.id || '')] || []).filter(function(b) {
+      return !b.month || String(b.month) <= currentMonth;
+    });
+    bills.forEach(function(b) {
+      if (b.month) debtMonthMap[String(b.month)] = (debtMonthMap[String(b.month)] || 0) + (parseFloat(b.debt) || 0);
+    });
+  });
+  var monthlyDebt = Object.keys(debtMonthMap).sort().map(function(m) {
+    return { month: m, amount: debtMonthMap[m] };
+  });
+
   var classRevMap = {};
   payments.forEach(function(p) {
     if (p.className) classRevMap[p.className] = (classRevMap[p.className] || 0) + p.amount;
@@ -350,6 +363,7 @@ function getAllData(termId) {
       totalDebt     : totalDebt,
       totalPayments : payments.length,
       monthlyRevenue: monthlyRevenue,
+      monthlyDebt   : monthlyDebt,
       classRevenue  : classRevMap
     },
     _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
