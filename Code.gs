@@ -563,54 +563,53 @@ function updateStudent(d) {
 
 // ── Payment ───────────────────────────────────────────────────
 function addPayment(d) {
-  // d: {studentId, classId, month, amount, method, staff, note}
+  // d: {studentId, classId, termId, enrollId?, tuition?, month, amount, method, staff, note}
   var enrollSheet = getSheet('enrollments');
   var billSheet   = getSheet('monthly_bills');
   var paySheet    = getSheet('payments');
-  var clsSheet    = getSheet('classes');
 
-  // Batch-read 3 sheets in 1 call
-  var rawMap     = batchReadSheets(['enrollments', 'classes', 'monthly_bills']);
-  var enrollData = rawMap['enrollments'];
-  var clsData    = rawMap['classes'];
-  var billData   = rawMap['monthly_bills'];
+  // 1. enrollment — nếu frontend đã pass enrollId thì skip lookup
+  var eid     = String(d.enrollId || '');
+  var tuition = parseFloat(d.tuition) || 0;
 
-  // 1. Find or create enrollment
-  var eHdr = enrollData[0].map(function(h) { return String(h).trim(); });
-  var eid = '';
-  for (var i = 1; i < enrollData.length; i++) {
-    var er = {};
-    eHdr.forEach(function(h, ci) { er[h] = enrollData[i][ci]; });
-    var termMatch = !d.termId || String(er.term_id || '') === String(d.termId);
-    if (String(er.student_id) === String(d.studentId) && String(er.class_id) === String(d.classId) && termMatch) {
-      eid = String(er.id); break;
+  if (!eid) {
+    // Fallback: tìm trong enrollments (chỉ khi frontend chưa có)
+    var enrollData = enrollSheet.getDataRange().getValues();
+    var eHdr = enrollData[0].map(function(h) { return String(h).trim(); });
+    for (var i = 1; i < enrollData.length; i++) {
+      var er = {};
+      eHdr.forEach(function(h, ci) { er[h] = enrollData[i][ci]; });
+      var termMatch = !d.termId || String(er.term_id || '') === String(d.termId);
+      if (String(er.student_id) === String(d.studentId) && String(er.class_id) === String(d.classId) && termMatch) {
+        eid = String(er.id); break;
+      }
+    }
+    if (!eid) {
+      eid = genId('enrollments', 'EN');
+      enrollSheet.appendRow([eid, d.studentId, d.classId, d.termId || '', new Date(), '', 'Đang học', '']);
     }
   }
-  if (!eid) {
-    eid = genId('enrollments', 'EN');
-    enrollSheet.appendRow([eid, d.studentId, d.classId, d.termId || '', new Date(), '', 'Đang học', '']);
-  }
 
-  // 2. Find class tuition
-  var cHdr    = clsData[0].map(function(h) { return String(h).trim(); });
-  var tuition = 0;
-  for (var k = 1; k < clsData.length; k++) {
-    var cr = {};
-    cHdr.forEach(function(h, ci) { cr[h] = clsData[k][ci]; });
-    if (String(cr.id) === String(d.classId)) { tuition = parseFloat(cr.tuition_per_month) || 0; break; }
-  }
+  // 2. Tìm bill bằng TextFinder thay vì scan toàn bộ sheet
+  var bHdr = billSheet.getRange(1, 1, 1, billSheet.getLastColumn()).getValues()[0].map(function(h){ return String(h).trim(); });
+  var enrCol   = bHdr.indexOf('enrollment_id') + 1;
+  var monthCol = bHdr.indexOf('month') + 1;
+  var idCol    = bHdr.indexOf('id') + 1;
+  var dueCol   = bHdr.indexOf('amount_due') + 1;
+  var paidCol  = bHdr.indexOf('amount_paid') + 1;
 
-  // 3. Find or create monthly_bill
-  var bHdr     = billData[0].map(function(h) { return String(h).trim(); });
   var bid = '', billRow = -1, prevPaid = 0, amtDue = tuition;
-  for (var j = 1; j < billData.length; j++) {
-    var br = {};
-    bHdr.forEach(function(h, ci) { br[h] = billData[j][ci]; });
-    if (String(br.enrollment_id) === eid && String(br.month) === String(d.month)) {
-      bid = String(br.id);
-      billRow = j + 1;
-      prevPaid = parseFloat(br.amount_paid) || 0;
-      amtDue   = parseFloat(br.amount_due)  || tuition;
+  var matches = billSheet.createTextFinder(eid).matchEntireCell(true).findAll();
+  for (var m = 0; m < matches.length; m++) {
+    var r = matches[m].getRow();
+    if (matches[m].getColumn() !== enrCol) continue;
+    // Đọc nguyên 1 row chứa match (1 API call mỗi match nhưng thường <5 matches/enrollment)
+    var rowVals = billSheet.getRange(r, 1, 1, bHdr.length).getValues()[0];
+    if (String(rowVals[monthCol - 1]) === String(d.month)) {
+      bid = String(rowVals[idCol - 1]);
+      billRow = r;
+      prevPaid = parseFloat(rowVals[paidCol - 1]) || 0;
+      amtDue   = parseFloat(rowVals[dueCol  - 1]) || tuition;
       break;
     }
   }

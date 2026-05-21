@@ -2416,7 +2416,16 @@ function savePayment() {
   if (!month) { toast('Chọn tháng thanh toán!', 'error'); return; }
 
   var cls = APP.classes.find(function(c) { return c.id === classId; });
-  var d = { studentId: s.id, classId: classId, termId: APP.currentTermId, month: month, amount: amount, method: document.getElementById('p_method').value, staff: document.getElementById('p_staff').value, note: document.getElementById('p_note').value };
+  var enrollEntry = s.classes.find(function(c) { return c.classId === classId; });
+  var d = {
+    studentId: s.id, classId: classId, termId: APP.currentTermId,
+    enrollId : (enrollEntry && enrollEntry.enrollId) || '',
+    tuition  : (enrollEntry && enrollEntry.tuition)  || (cls && cls.tuition) || 0,
+    month    : month, amount: amount,
+    method   : document.getElementById('p_method').value,
+    staff    : document.getElementById('p_staff').value,
+    note     : document.getElementById('p_note').value
+  };
 
   closeModal('modalPayment');
   showLoading(true);
