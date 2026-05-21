@@ -891,6 +891,8 @@ function renderClassGrid() {
         '<div style="text-align:right;flex-shrink:0">' +
           '<div style="font-weight:700;font-size:14px">' + c.count + ' <span style="font-size:11px;color:var(--gray-400);font-weight:400">HS</span></div>' +
           '<div style="font-size:11px;color:var(--gray-600)">' + (c.tuition ? fmtMoney(c.tuition) + '/tháng' : '—') + '</div>' +
+          (c.paid  ? '<div style="font-size:11px;color:var(--success)">Đã thu: ' + fmtMoney(c.paid) + '</div>' : '') +
+          (c.debt  ? '<div style="font-size:11px;color:var(--danger);font-weight:600">Còn nợ: ' + fmtMoney(c.debt) + '</div>' : '') +
         '</div>' +
         '<span style="color:var(--gray-400);font-size:16px;margin-left:4px">›</span></div>';
     }).join('');

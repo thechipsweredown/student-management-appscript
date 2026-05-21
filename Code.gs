@@ -257,20 +257,36 @@ function getAllData(termId) {
   mark('compute:payments(' + payments.length + ')');
 
   // ── Classes list ──────────────────────────────────────────
+  // Tính paid/debt per class từ bills (group theo enrollment → class)
+  var paidByClass = {};
+  var debtByClass = {};
+  rawEnroll.forEach(function(e) {
+    var cid   = String(e.class_id || '');
+    if (!cid) return;
+    var bills = billByEnroll[String(e.id || '')] || [];
+    bills.forEach(function(b) {
+      paidByClass[cid] = (paidByClass[cid] || 0) + (parseFloat(b.amount_paid) || 0);
+      debtByClass[cid] = (debtByClass[cid] || 0) + (parseFloat(b.debt)        || 0);
+    });
+  });
+
   var classes = rawClasses.map(function(c) {
     var teacher = teacherMap[String(c.teacher_id || '')] || {};
+    var cid     = String(c.id || '');
     var count   = Object.keys(enrollByStudent).filter(function(sid) {
       return (enrollByStudent[sid] || []).some(function(e) {
-        return String(e.class_id) === String(c.id) && String(e.status) === 'Đang học';
+        return String(e.class_id) === cid && String(e.status) === 'Đang học';
       });
     }).length;
     return {
-      id     : String(c.id || ''),
+      id     : cid,
       name   : String(c.name || ''),
       teacher: String(teacher.name || ''),
       tuition: parseFloat(c.tuition_per_month) || 0,
       status : String(c.status || ''),
-      count  : count
+      count  : count,
+      paid   : paidByClass[cid] || 0,
+      debt   : debtByClass[cid] || 0
     };
   });
 
