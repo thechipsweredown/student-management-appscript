@@ -400,13 +400,20 @@ tr:hover td { background: var(--gray-50); }
       <!-- Classes -->
       <div id="view-classes" class="view">
         <div id="classListView">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px">
+            <button class="header-btn btn-outline" onclick="openAddClassGroup()">➕ Thêm nhóm</button>
+          </div>
           <div id="classGroupGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px"></div>
         </div>
         <div id="classDetailView" style="display:none">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
             <button class="header-btn btn-outline" onclick="backToClassList()">← Quay lại</button>
             <span id="detailClassName" style="font-size:18px;font-weight:800"></span>
             <span id="detailClassInfo" style="font-size:13px;color:var(--gray-400)"></span>
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button class="header-btn btn-outline" id="detailEditClassBtn" onclick="openEditCurrentClass()">✏️ Sửa lớp</button>
+              <button class="header-btn btn-primary" id="detailAddStudentBtn" onclick="openAddStudentToClass()">➕ Thêm học sinh</button>
+            </div>
           </div>
           <div style="display:flex;gap:12px;margin-bottom:16px">
             <div style="background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:12px 20px;display:flex;flex-direction:column;gap:2px">
@@ -421,7 +428,7 @@ tr:hover td { background: var(--gray-50); }
           <div class="table-card">
             <table><thead><tr>
               <th>Mã HS</th><th>Họ và tên</th><th>Trạng thái</th>
-              <th>HP/tháng</th><th>Đã đóng</th><th>Nợ</th>
+              <th>HP/tháng</th><th>Đã đóng</th><th>Nợ</th><th></th>
             </tr></thead><tbody id="classDetailTbody"></tbody></table>
           </div>
         </div>
@@ -430,20 +437,10 @@ tr:hover td { background: var(--gray-50); }
       <!-- Settings -->
       <div id="view-settings" class="view">
         <div class="settings-tabs">
-          <div class="settings-tab active" onclick="switchSettingsTab('tuition')">💰 Học phí theo lớp</div>
-          <div class="settings-tab" onclick="switchSettingsTab('users')">👥 Phân quyền</div>
+          <div class="settings-tab active" onclick="switchSettingsTab('users')">👥 Phân quyền</div>
           <div class="settings-tab" onclick="switchSettingsTab('terms')">📅 Kỳ học</div>
         </div>
-        <div id="stab-tuition" class="settings-panel active">
-          <div class="table-card">
-            <div class="table-toolbar"><span style="font-size:13px;font-weight:600">Cấu hình học phí theo lớp</span></div>
-            <div style="overflow-x:auto">
-              <table><thead><tr><th>Lớp</th><th>Giáo viên</th><th>Học phí / tháng (đ)</th><th></th></tr></thead>
-              <tbody id="tuitionTbody"></tbody></table>
-            </div>
-          </div>
-        </div>
-        <div id="stab-users" class="settings-panel">
+        <div id="stab-users" class="settings-panel active">
           <div class="table-card">
             <div class="table-toolbar">
               <span style="font-size:13px;font-weight:600">Danh sách tài khoản</span>
@@ -567,6 +564,83 @@ tr:hover td { background: var(--gray-50); }
     <div class="modal-footer">
       <button class="header-btn btn-outline" onclick="closeModal('modalEditPayment')">Huỷ</button>
       <button class="header-btn btn-primary" onclick="submitEditPayment()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit Class -->
+<div class="modal-overlay" id="modalClass">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title" id="modalClassTitle">Thêm lớp học</span>
+      <button class="modal-close" onclick="closeModal('modalClass')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cls_id">
+      <input type="hidden" id="cls_groupName">
+      <div class="form-grid">
+        <div class="form-group span2"><label>Tên lớp *</label><input class="form-control" id="cls_name" placeholder="VD: Anh 1, Happy A…"></div>
+        <div class="form-group"><label>Giáo viên</label>
+          <select class="form-control" id="cls_teacherId"><option value="">-- Chưa chọn --</option></select>
+        </div>
+        <div class="form-group"><label>Học phí / tháng (đ)</label>
+          <input class="form-control" id="cls_tuition" type="number" step="50000" min="0" placeholder="0">
+        </div>
+        <div class="form-group span2"><label>Môn học / Ghi chú</label>
+          <input class="form-control" id="cls_subject" placeholder="VD: Tiếng Anh, Tiếng Nhật…">
+        </div>
+        <div class="form-group span2"><label>Trạng thái</label>
+          <select class="form-control" id="cls_status">
+            <option value="Đang hoạt động">Đang hoạt động</option>
+            <option value="Tạm dừng">Tạm dừng</option>
+            <option value="Kết thúc">Kết thúc</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalClass')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="submitClass()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Class Group -->
+<div class="modal-overlay" id="modalClassGroup">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title" id="modalClassGroupTitle">Thêm nhóm lớp</span>
+      <button class="modal-close" onclick="closeModal('modalClassGroup')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cg_oldName">
+      <div class="form-group"><label>Tên nhóm *</label>
+        <input class="form-control" id="cg_name" placeholder="VD: Ngoại ngữ Panda, Happy…">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalClassGroup')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="submitClassGroup()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add Student to Class -->
+<div class="modal-overlay" id="modalAddStudentToClass">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Thêm học sinh vào lớp</span>
+      <button class="modal-close" onclick="closeModal('modalAddStudentToClass')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Tìm học sinh</label>
+        <input class="form-control" id="acs_search" placeholder="Nhập tên hoặc mã HS…" oninput="renderAddStudentList()">
+      </div>
+      <div id="acs_list" style="max-height:280px;overflow-y:auto;margin-top:8px;border:1px solid var(--gray-200);border-radius:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalAddStudentToClass')">Đóng</button>
     </div>
   </div>
 </div>
@@ -734,6 +808,7 @@ function applyData(data) {
   APP.payments    = data.payments    || [];
   APP.classes     = data.classes     || [];
   APP.classGroups = data.classGroups || [];
+  APP.teachers    = data.teachers    || APP.teachers || [];
   APP.terms       = data.terms       || [];
   APP.stats       = data.stats       || {};
   if (data.currentTermId && data.currentTermId !== APP.currentTermId) {
@@ -848,7 +923,7 @@ function showView(name) {
   if (name === 'attendance') initAttendanceView();
   if (name === 'schedule')   loadSchedule();
   if (name === 'attStats')   loadAttStats();
-  if (name === 'settings')   renderSettings();
+  if (name === 'settings')   loadUsers();
 }
 
 // ═══════════════════════════════════════════════
@@ -1153,67 +1228,78 @@ function renderClassGrid() {
   var classMap = {};
   APP.classes.forEach(function(c) { classMap[c.name] = c; });
   var groups = APP.classGroups.length ? APP.classGroups : [{name: 'Tất cả', classes: APP.classes.map(function(c) { return c.name; })}];
-  var groupColors = ['#e07b39', '#4f46e5'];
+  var groupColors = ['#e07b39', '#4f46e5', '#0d9488', '#e11d48'];
 
   var html = groups.map(function(group, gi) {
-    var gc = groupColors[gi] || PALETTE[gi];
+    var gc = groupColors[gi % groupColors.length];
     var rows = group.classes.map(function(cname, i) {
       var c = classMap[cname] || { name: cname, teacher: '', count: 0, tuition: 0 };
-      return '<div onclick="openClassDetail(\'' + esc(cname) + '\')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background=\'var(--gray-50)\'" onmouseout="this.style.background=\'\'">' +
-        '<div style="width:32px;height:32px;border-radius:8px;background:' + gc + '22;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800;color:' + gc + '">' + (i+1) + '</div>' +
-        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">' + esc(cname) + '</div>' +
+      return '<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--gray-100)">' +
+        '<div onclick="openClassDetail(\'' + esc(cname) + '\')" style="width:32px;height:32px;border-radius:8px;background:' + gc + '22;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800;color:' + gc + ';cursor:pointer">' + (i+1) + '</div>' +
+        '<div onclick="openClassDetail(\'' + esc(cname) + '\')" style="flex:1;min-width:0;cursor:pointer">' +
+          '<div style="font-weight:700;font-size:14px">' + esc(cname) + (c.subject ? ' <span style="font-size:11px;color:var(--gray-400);font-weight:400">· ' + esc(c.subject) + '</span>' : '') + '</div>' +
           (c.teacher ? '<div style="font-size:11px;color:var(--gray-400)">' + esc(c.teacher) + '</div>' : '') +
         '</div>' +
-        '<div style="text-align:right;flex-shrink:0">' +
+        '<div onclick="openClassDetail(\'' + esc(cname) + '\')" style="text-align:right;flex-shrink:0;cursor:pointer">' +
           '<div style="font-weight:700;font-size:14px">' + c.count + ' <span style="font-size:11px;color:var(--gray-400);font-weight:400">HS</span></div>' +
           '<div style="font-size:11px;color:var(--gray-600)">' + (c.tuition ? fmtMoney(c.tuition) + '/tháng' : '—') + '</div>' +
-          (c.paid  ? '<div style="font-size:11px;color:var(--success)">Đã thu: ' + fmtMoney(c.paid) + '</div>' : '') +
-          (c.debt  ? '<div style="font-size:11px;color:var(--danger);font-weight:600">Còn nợ: ' + fmtMoney(c.debt) + '</div>' : '') +
         '</div>' +
-        '<span style="color:var(--gray-400);font-size:16px;margin-left:4px">›</span></div>';
+        '<div style="display:flex;gap:2px;flex-shrink:0">' +
+          '<button class="act-btn edit" onclick=\'openEditClass(' + JSON.stringify(c) + ',"' + esc(group.name) + '")\' title="Sửa lớp">✏️</button>' +
+          '<button class="act-btn del" onclick=\'confirmDeleteClass("' + esc(c.id) + '","' + esc(cname) + '")\' title="Xoá lớp">🗑️</button>' +
+        '</div>' +
+      '</div>';
     }).join('');
     return '<div style="background:#fff;border-radius:14px;border:1px solid var(--gray-200);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">' +
-      '<div style="padding:14px 16px;background:' + gc + ';display:flex;align-items:center;gap:8px">' +
-        '<span style="font-size:16px;font-weight:800;color:#fff">' + esc(group.name) + '</span>' +
-        '<span style="font-size:12px;color:rgba(255,255,255,.75);margin-left:auto">' + group.classes.length + ' lớp</span>' +
-      '</div><div>' + rows + '</div></div>';
+      '<div style="padding:12px 16px;background:' + gc + ';display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:15px;font-weight:800;color:#fff">' + esc(group.name) + '</span>' +
+        '<span style="font-size:12px;color:rgba(255,255,255,.7);margin-left:auto">' + group.classes.length + ' lớp</span>' +
+        '<button onclick=\'openEditClassGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;padding:3px 8px;cursor:pointer;font-size:12px" title="Đổi tên nhóm">✏️</button>' +
+        '<button onclick=\'confirmDeleteClassGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.15);border:none;border-radius:6px;color:#fff;padding:3px 8px;cursor:pointer;font-size:12px" title="Xoá nhóm">🗑️</button>' +
+        '<button onclick=\'openAddClassInGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.25);border:none;border-radius:6px;color:#fff;padding:3px 10px;cursor:pointer;font-size:13px;font-weight:700" title="Thêm lớp vào nhóm">＋</button>' +
+      '</div>' +
+      '<div>' + rows + '</div></div>';
   }).join('');
-  document.getElementById('classGroupGrid').innerHTML = html || '<p style="color:var(--gray-400)">Không có lớp.</p>';
+  document.getElementById('classGroupGrid').innerHTML = html || '<p style="color:var(--gray-400);padding:20px">Chưa có nhóm lớp nào. Bấm "Thêm nhóm" để bắt đầu.</p>';
 }
 
+var _currentDetailClassName = '';
+
 function openClassDetail(className) {
+  _currentDetailClassName = className;
+  var cls      = APP.classes.find(function(c) { return c.name === className; }) || {};
   var students = APP.students.filter(function(s) {
     return s.classes.some(function(c) { return c.className === className; });
   });
   students.sort(function(a, b) { return a.name.localeCompare(b.name, 'vi'); });
 
-  var cls = APP.classes.find(function(c) { return c.name === className; }) || {};
   document.getElementById('detailClassName').textContent = className;
-  document.getElementById('detailClassInfo').textContent = students.length + ' học sinh · ' + esc(cls.teacher || '') + (cls.tuition ? ' · ' + fmtMoney(cls.tuition) + '/tháng' : '');
-  document.getElementById('detailClassPaid').textContent = cls.paid ? fmtMoney(cls.paid) : '0 đ';
-  document.getElementById('detailClassDebt').textContent = cls.debt ? fmtMoney(cls.debt) : '0 đ';
+  document.getElementById('detailClassInfo').textContent =
+    students.length + ' học sinh' +
+    (cls.teacher  ? ' · ' + cls.teacher  : '') +
+    (cls.subject  ? ' · ' + cls.subject  : '') +
+    (cls.tuition  ? ' · ' + fmtMoney(cls.tuition) + '/tháng' : '');
+  document.getElementById('detailClassPaid').textContent = fmtMoney(cls.paid || 0);
+  document.getElementById('detailClassDebt').textContent = fmtMoney(cls.debt || 0);
   document.getElementById('detailClassDebt').style.color = cls.debt > 0 ? 'var(--danger)' : 'var(--gray-400)';
 
   var tbody = students.map(function(s) {
-    var c = s.classes.find(function(c) { return c.className === className; }) || {};
+    var c   = s.classes.find(function(c) { return c.className === className; }) || {};
     var eid = c.enrollId || '';
+    var balance = (c.billPaid || 0) - (c.billDue || 0);
     return '<tr>' +
       '<td><span style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(s.id) + '</span></td>' +
       '<td style="cursor:pointer" onclick=\'openStudentDetail(' + JSON.stringify(s) + ')\'><div style="display:flex;align-items:center;gap:10px">' + avatarCircle(s, 32) + '<strong>' + esc(s.name) + '</strong></div></td>' +
       '<td>' + statusBadge(s.status) + '</td>' +
       '<td><div style="display:flex;align-items:center;gap:4px">' +
         '<input type="number" step="50000" value="' + (c.tuition || 0) + '" id="enrtui_' + esc(eid) + '" style="width:90px;padding:3px 6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">' +
-        (eid ? '<button class="act-btn" style="padding:3px 6px;font-size:13px" onclick="saveEnrollTuition(\'' + esc(eid) + '\',\'' + esc(s.name) + '\')" title="Lưu học phí">💾</button>' : '') +
+        (eid ? '<button class="act-btn" style="padding:3px 6px" onclick="saveEnrollTuition(\'' + esc(eid) + '\',\'' + esc(s.name) + '\')" title="Lưu HP">💾</button>' : '') +
       '</div></td>' +
       '<td style="color:var(--success);font-weight:600">' + fmtMoney(c.billPaid) + '</td>' +
-      (function() {
-        var balance = (c.billPaid || 0) - (c.billDue || 0);
-        if (balance === 0) return '<td style="color:var(--gray-400)">—</td>';
-        if (balance < 0)   return '<td style="color:var(--danger);font-weight:700">'  + fmtMoney(-balance) + '</td>';
-        return               '<td style="color:var(--success);font-weight:600">-' + fmtMoney(balance) + '</td>';
-      })() +
+      (balance === 0 ? '<td style="color:var(--gray-400)">—</td>' : balance < 0 ? '<td style="color:var(--danger);font-weight:700">' + fmtMoney(-balance) + '</td>' : '<td style="color:var(--success);font-weight:600">-' + fmtMoney(balance) + '</td>') +
+      '<td><button class="act-btn del" onclick=\'confirmRemoveStudentFromClass("' + esc(eid) + '","' + esc(s.name) + '")\' title="Xoá khỏi lớp">🗑️</button></td>' +
     '</tr>';
-  }).join('') || '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--gray-400)">Không có học sinh</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--gray-400)">Chưa có học sinh</td></tr>';
 
   document.getElementById('classDetailTbody').innerHTML = tbody;
   document.getElementById('classListView').style.display   = 'none';
@@ -1223,6 +1309,183 @@ function openClassDetail(className) {
 function backToClassList() {
   document.getElementById('classDetailView').style.display = 'none';
   document.getElementById('classListView').style.display   = 'block';
+  _currentDetailClassName = '';
+}
+
+// ── Class group ──────────────────────────────────────────────
+function openAddClassGroup() {
+  document.getElementById('modalClassGroupTitle').textContent = 'Thêm nhóm lớp';
+  document.getElementById('cg_oldName').value = '';
+  document.getElementById('cg_name').value    = '';
+  openModal('modalClassGroup');
+}
+function openEditClassGroup(name) {
+  document.getElementById('modalClassGroupTitle').textContent = 'Đổi tên nhóm';
+  document.getElementById('cg_oldName').value = name;
+  document.getElementById('cg_name').value    = name;
+  openModal('modalClassGroup');
+}
+function submitClassGroup() {
+  var name    = document.getElementById('cg_name').value.trim();
+  var oldName = document.getElementById('cg_oldName').value.trim();
+  if (!name) { toast('Nhập tên nhóm!', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        closeModal('modalClassGroup');
+        toast('Đã lưu nhóm', 'success');
+        reloadClasses();
+      }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .saveClassGroup(name, oldName);
+}
+function confirmDeleteClassGroup(name) {
+  if (!confirm('Xoá nhóm "' + name + '"? Các lớp trong nhóm vẫn giữ nguyên trong sheet.')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) { toast('Đã xoá nhóm', 'success'); reloadClasses(); }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .deleteClassGroup(name);
+}
+
+// ── Class CRUD ───────────────────────────────────────────────
+function _fillClassTeacherSelect(selectedId) {
+  var sel = document.getElementById('cls_teacherId');
+  sel.innerHTML = '<option value="">-- Chưa chọn --</option>' + APP.teachers.map(function(t) {
+    return '<option value="' + esc(t.id) + '"' + (t.id === selectedId ? ' selected' : '') + '>' + esc(t.name) + '</option>';
+  }).join('');
+}
+function openAddClassInGroup(groupName) {
+  document.getElementById('modalClassTitle').textContent = 'Thêm lớp vào ' + groupName;
+  document.getElementById('cls_id').value        = '';
+  document.getElementById('cls_groupName').value = groupName;
+  document.getElementById('cls_name').value      = '';
+  document.getElementById('cls_tuition').value   = '';
+  document.getElementById('cls_subject').value   = '';
+  document.getElementById('cls_status').value    = 'Đang hoạt động';
+  _fillClassTeacherSelect('');
+  openModal('modalClass');
+}
+function openEditClass(cls, groupName) {
+  document.getElementById('modalClassTitle').textContent = 'Sửa lớp ' + cls.name;
+  document.getElementById('cls_id').value        = cls.id || '';
+  document.getElementById('cls_groupName').value = groupName || '';
+  document.getElementById('cls_name').value      = cls.name || '';
+  document.getElementById('cls_tuition').value   = cls.tuition || '';
+  document.getElementById('cls_subject').value   = cls.subject || '';
+  document.getElementById('cls_status').value    = cls.status || 'Đang hoạt động';
+  _fillClassTeacherSelect(cls.teacherId || '');
+  openModal('modalClass');
+}
+function openEditCurrentClass() {
+  var cls = APP.classes.find(function(c) { return c.name === _currentDetailClassName; });
+  if (cls) openEditClass(cls, '');
+}
+function submitClass() {
+  var d = {
+    id       : document.getElementById('cls_id').value,
+    groupName: document.getElementById('cls_groupName').value,
+    name     : document.getElementById('cls_name').value.trim(),
+    teacherId: document.getElementById('cls_teacherId').value,
+    tuition  : parseFloat(document.getElementById('cls_tuition').value) || 0,
+    subject  : document.getElementById('cls_subject').value.trim(),
+    status   : document.getElementById('cls_status').value
+  };
+  if (!d.name) { toast('Nhập tên lớp!', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        closeModal('modalClass');
+        toast('Đã lưu lớp ' + d.name, 'success');
+        reloadClasses();
+      }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .saveClass(d);
+}
+function confirmDeleteClass(classId, className) {
+  if (!confirm('Xoá lớp "' + className + '"? Thao tác này không xoá dữ liệu học sinh/enrollment.')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) { toast('Đã xoá lớp', 'success'); reloadClasses(); }
+      else toast('Xoá thất bại', 'error');
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .deleteClass(classId);
+}
+
+// ── Add/remove student ───────────────────────────────────────
+function openAddStudentToClass() {
+  document.getElementById('acs_search').value = '';
+  renderAddStudentList();
+  openModal('modalAddStudentToClass');
+}
+function renderAddStudentList() {
+  var q   = document.getElementById('acs_search').value.toLowerCase();
+  var cls = APP.classes.find(function(c) { return c.name === _currentDetailClassName; });
+  var enrolledIds = APP.students
+    .filter(function(s) { return s.classes.some(function(c) { return c.className === _currentDetailClassName; }); })
+    .map(function(s) { return s.id; });
+
+  var filtered = APP.students.filter(function(s) {
+    return (!q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q));
+  }).slice(0, 40);
+
+  var html = filtered.map(function(s) {
+    var inClass = enrolledIds.indexOf(s.id) !== -1;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--gray-100)">' +
+      avatarCircle(s, 28) +
+      '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + esc(s.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--gray-400)">' + esc(s.id) + '</div></div>' +
+      (inClass
+        ? '<span class="badge badge-green">Đã trong lớp</span>'
+        : '<button class="header-btn btn-primary btn-sm" onclick="doAddStudentToClass(\'' + esc(s.id) + '\',\'' + esc(s.name) + '\')">Thêm</button>'
+      ) +
+    '</div>';
+  }).join('') || '<div style="padding:16px;color:var(--gray-400);text-align:center">Không tìm thấy</div>';
+  document.getElementById('acs_list').innerHTML = html;
+}
+function doAddStudentToClass(studentId, studentName) {
+  var cls = APP.classes.find(function(c) { return c.name === _currentDetailClassName; });
+  if (!cls) { toast('Không tìm thấy lớp', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        toast('Đã thêm ' + studentName + ' vào lớp', 'success');
+        renderAddStudentList();
+        reloadClasses();
+      } else toast(r.error || 'Lỗi', 'error');
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .addStudentToClass(studentId, cls.id, APP.currentTermId);
+}
+function confirmRemoveStudentFromClass(enrollId, studentName) {
+  if (!confirm('Xoá ' + studentName + ' khỏi lớp ' + _currentDetailClassName + '?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        toast('Đã xoá khỏi lớp', 'success');
+        reloadClasses();
+      }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .removeStudentFromClass(enrollId);
+}
+
+function reloadClasses() {
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(data) {
+      applyData(data);
+      showLoading(false);
+      initUI();
+      if (_currentDetailClassName) openClassDetail(_currentDetailClassName);
+      else renderClassGrid();
+    })
+    .withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); })
+    .getAllData(APP.currentTermId);
 }
 
 // ═══════════════════════════════════════════════
@@ -1230,7 +1493,7 @@ function backToClassList() {
 // ═══════════════════════════════════════════════
 function switchSettingsTab(tab) {
   document.querySelectorAll('.settings-tab').forEach(function(el, i) {
-    el.classList.toggle('active', ['tuition','users','terms'][i] === tab);
+    el.classList.toggle('active', ['users','terms'][i] === tab);
   });
   document.querySelectorAll('.settings-panel').forEach(function(el) { el.classList.remove('active'); });
   document.getElementById('stab-' + tab).classList.add('active');

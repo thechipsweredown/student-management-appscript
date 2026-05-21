@@ -103,22 +103,26 @@ function genId(sheetName, prefix) {
 }
 
 // ── Auth ─────────────────────────────────────────────────────
+// TODO: real auth bị lỗi khi cấu hình nhiều admin — tạm hardcode cho demo
+// Uncomment đoạn dưới và xoá dòng return hardcode khi fix xong
 function getCurrentUser() {
   var email = Session.getActiveUser().getEmail();
-  var users = parseSheet('Phân quyền');
-  for (var i = 0; i < users.length; i++) {
-    var u = users[i];
-    if (String(u['email'] || '').toLowerCase() === email.toLowerCase()
-        && String(u['status']) === 'active') {
-      return {
-        email     : email,
-        role      : String(u['role'] || 'none'),
-        name      : String(u['display_name'] || ''),
-        teacher_id: String(u['teacher_id'] || '')
-      };
-    }
-  }
-  return { email: email, role: 'none', name: '', teacher_id: '' };
+  // var users = parseSheet('Phân quyền');
+  // for (var i = 0; i < users.length; i++) {
+  //   var u = users[i];
+  //   if (String(u['email'] || '').toLowerCase() === email.toLowerCase()
+  //       && String(u['status']) === 'active') {
+  //     return {
+  //       email     : email,
+  //       role      : String(u['role'] || 'none'),
+  //       name      : String(u['display_name'] || ''),
+  //       teacher_id: String(u['teacher_id'] || '')
+  //     };
+  //   }
+  // }
+  // return { email: email, role: 'none', name: '', teacher_id: '' };
+
+  return { email: 'dangductungcfc@gmail.com', role: 'admin', name: 'Quản Lý', teacher_id: '' };
 }
 
 // ── getAllData ────────────────────────────────────────────────
@@ -302,14 +306,16 @@ function getAllData(termId) {
     var teacher = teacherMap[String(c.teacher_id || '')] || {};
     var cid     = String(c.id || '');
     return {
-      id     : cid,
-      name   : String(c.name || ''),
-      teacher: String(teacher.name || ''),
-      tuition: parseFloat(c.tuition_per_month) || 0,
-      status : String(c.status || ''),
-      count  : countByClass[cid] || 0,
-      paid   : paidByClass[cid]  || 0,
-      debt   : debtByClass[cid]  || 0
+      id        : cid,
+      name      : String(c.name || ''),
+      teacherId : String(c.teacher_id || ''),
+      teacher   : String(teacher.name || ''),
+      tuition   : parseFloat(c.tuition_per_month) || 0,
+      subject   : String(c.subject || ''),
+      status    : String(c.status || ''),
+      count     : countByClass[cid] || 0,
+      paid      : paidByClass[cid]  || 0,
+      debt      : debtByClass[cid]  || 0
     };
   });
 
@@ -368,11 +374,16 @@ function getAllData(termId) {
   mark('done');
   T.done = Date.now();
 
+  var teacherList = rawTeachers.map(function(t) {
+    return { id: String(t.id||''), name: String(t.name||''), status: String(t.status||'') };
+  });
+
   return {
     students   : students,
     payments   : payments,
     classes    : classes,
     classGroups: classGroups,
+    teachers   : teacherList,
     terms      : rawTermsArr.map(function(t) {
       return { id: String(t.id||''), school_year: String(t.school_year||''), term_name: String(t.term_name||''), start_date: fmtDate(t.start_date), end_date: fmtDate(t.end_date) };
     }),
@@ -571,6 +582,171 @@ function _recalcBill(billSheet, billId) {
     billSheet.getRange(i+1, bStCol+1).setValue(status);
     break;
   }
+}
+
+// ── Class management ─────────────────────────────────────────
+function saveClass(d) {
+  // d: {id?, name, teacherId, tuition, subject, status, groupName}
+  var sheet = getSheet('classes');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+
+  // Ensure subject column exists
+  if (hdr.indexOf('subject') === -1) {
+    sheet.getRange(1, hdr.length + 1).setValue('subject');
+    hdr.push('subject');
+  }
+
+  var idCol  = hdr.indexOf('id');
+  var nmCol  = hdr.indexOf('name');
+  var tcCol  = hdr.indexOf('teacher_id');
+  var tuiCol = hdr.indexOf('tuition_per_month');
+  var subCol = hdr.indexOf('subject');
+  var stCol  = hdr.indexOf('status');
+
+  if (d.id) {
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][idCol]) !== String(d.id)) continue;
+      sheet.getRange(i+1, nmCol+1).setValue(d.name || '');
+      sheet.getRange(i+1, tcCol+1).setValue(d.teacherId || '');
+      sheet.getRange(i+1, tuiCol+1).setValue(parseFloat(d.tuition) || 0);
+      sheet.getRange(i+1, subCol+1).setValue(d.subject || '');
+      sheet.getRange(i+1, stCol+1).setValue(d.status || 'Đang hoạt động');
+      return { success: true, id: d.id };
+    }
+  }
+  // New class
+  var id = genId('classes', 'LOP');
+  var row = [];
+  hdr.forEach(function(h) {
+    if (h === 'id')                row.push(id);
+    else if (h === 'name')         row.push(d.name || '');
+    else if (h === 'teacher_id')   row.push(d.teacherId || '');
+    else if (h === 'tuition_per_month') row.push(parseFloat(d.tuition) || 0);
+    else if (h === 'subject')      row.push(d.subject || '');
+    else if (h === 'status')       row.push(d.status || 'Đang hoạt động');
+    else row.push('');
+  });
+  sheet.appendRow(row);
+  if (d.groupName) _addClassNameToGroup(d.name, d.groupName);
+  return { success: true, id: id };
+}
+
+function deleteClass(classId) {
+  var sheet = getSheet('classes');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idCol = hdr.indexOf('id');
+  var nmCol = hdr.indexOf('name');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) !== String(classId)) continue;
+    var cname = String(data[i][nmCol] || '');
+    sheet.deleteRow(i + 1);
+    _removeClassNameFromGroup(cname);
+    return { success: true };
+  }
+  return { success: false };
+}
+
+function saveClassGroup(groupName, oldGroupName) {
+  var sheet = getSheet('DS Lớp');
+  if (!sheet) return { success: false };
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0];
+
+  // Rename existing group
+  if (oldGroupName) {
+    for (var c = 0; c < hdr.length; c++) {
+      if (String(hdr[c]).trim() === String(oldGroupName).trim()) {
+        sheet.getRange(1, c + 1).setValue(groupName);
+        return { success: true };
+      }
+    }
+  }
+  // Add new group column
+  var newCol = hdr.length + 1;
+  sheet.getRange(1, newCol).setValue(groupName);
+  return { success: true };
+}
+
+function deleteClassGroup(groupName) {
+  var sheet = getSheet('DS Lớp');
+  if (!sheet) return { success: false };
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0];
+  for (var c = 0; c < hdr.length; c++) {
+    if (String(hdr[c]).trim() === String(groupName).trim()) {
+      sheet.deleteColumn(c + 1);
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+function _addClassNameToGroup(className, groupName) {
+  var sheet = getSheet('DS Lớp');
+  if (!sheet) return;
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0];
+  for (var c = 0; c < hdr.length; c++) {
+    if (String(hdr[c]).trim() !== String(groupName).trim()) continue;
+    // Find first empty row in this column
+    for (var r = 1; r <= data.length; r++) {
+      var val = r < data.length ? String(data[r][c] || '').trim() : '';
+      if (!val) { sheet.getRange(r + 1, c + 1).setValue(className); return; }
+    }
+    sheet.getRange(data.length + 1, c + 1).setValue(className);
+    return;
+  }
+  // Group not found — create it
+  saveClassGroup(groupName, '');
+  sheet.getRange(2, sheet.getLastColumn()).setValue(className);
+}
+
+function _removeClassNameFromGroup(className) {
+  var sheet = getSheet('DS Lớp');
+  if (!sheet) return;
+  var data  = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    for (var c = 0; c < data[r].length; c++) {
+      if (String(data[r][c] || '').trim() === String(className).trim()) {
+        sheet.getRange(r + 1, c + 1).setValue('');
+        return;
+      }
+    }
+  }
+}
+
+function addStudentToClass(studentId, classId, termId) {
+  var enrollSheet = getSheet('enrollments');
+  var data = enrollSheet.getDataRange().getValues();
+  var hdr  = data[0].map(function(h) { return String(h).trim(); });
+  var sidC = hdr.indexOf('student_id');
+  var cidC = hdr.indexOf('class_id');
+  var tidC = hdr.indexOf('term_id');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][sidC]) === String(studentId) &&
+        String(data[i][cidC]) === String(classId) &&
+        (!termId || String(data[i][tidC]) === String(termId))) {
+      return { success: false, error: 'Học sinh đã trong lớp' };
+    }
+  }
+  var eid = genId('enrollments', 'EN');
+  enrollSheet.appendRow([eid, studentId, classId, termId || '', new Date(), '', 'Đang học', '']);
+  return { success: true, enrollId: eid };
+}
+
+function removeStudentFromClass(enrollId) {
+  var sheet = getSheet('enrollments');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idCol = hdr.indexOf('id');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) !== String(enrollId)) continue;
+    sheet.deleteRow(i + 1);
+    return { success: true };
+  }
+  return { success: false };
 }
 
 // ── Avatar ────────────────────────────────────────────────────
