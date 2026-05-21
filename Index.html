@@ -1077,11 +1077,15 @@ function openClassDetail(className) {
 
   var tbody = students.map(function(s) {
     var c = s.classes.find(function(c) { return c.className === className; }) || {};
-    return '<tr style="cursor:pointer" onclick=\'openStudentDetail(' + JSON.stringify(s) + ')\'>' +
+    var eid = c.enrollId || '';
+    return '<tr>' +
       '<td><span style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(s.id) + '</span></td>' +
-      '<td><div style="display:flex;align-items:center;gap:10px">' + avatarCircle(s, 32) + '<strong>' + esc(s.name) + '</strong></div></td>' +
+      '<td style="cursor:pointer" onclick=\'openStudentDetail(' + JSON.stringify(s) + ')\'><div style="display:flex;align-items:center;gap:10px">' + avatarCircle(s, 32) + '<strong>' + esc(s.name) + '</strong></div></td>' +
       '<td>' + statusBadge(s.status) + '</td>' +
-      '<td style="font-weight:600">' + fmtMoney(c.tuition) + '</td>' +
+      '<td><div style="display:flex;align-items:center;gap:4px">' +
+        '<input type="number" step="50000" value="' + (c.tuition || 0) + '" id="enrtui_' + esc(eid) + '" style="width:90px;padding:3px 6px;border:1px solid var(--gray-200);border-radius:6px;font-size:12px;text-align:right">' +
+        (eid ? '<button class="act-btn" style="padding:3px 6px;font-size:13px" onclick="saveEnrollTuition(\'' + esc(eid) + '\',\'' + esc(s.name) + '\')" title="Lưu học phí">💾</button>' : '') +
+      '</div></td>' +
       '<td style="color:var(--success);font-weight:600">' + fmtMoney(c.billPaid) + '</td>' +
       (function() {
         var balance = (c.billPaid || 0) - (c.billDue || 0);
@@ -1139,6 +1143,19 @@ function saveTuition(classId, className) {
     })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .updateClassTuition(classId, val);
+}
+
+function saveEnrollTuition(enrollId, studentName) {
+  var input = document.getElementById('enrtui_' + enrollId);
+  if (!input) return;
+  var val = parseFloat(input.value) || 0;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) toast('Đã cập nhật HP của ' + studentName + ' → ' + fmtMoney(val), 'success');
+      else toast('Không tìm thấy enrollment', 'error');
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .updateEnrollmentTuition(enrollId, val);
 }
 
 var _usersCache = [];

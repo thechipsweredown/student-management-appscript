@@ -183,6 +183,8 @@ function getAllData(termId) {
 
   mark('compute:lookup_maps');
 
+  var currentMonth = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
+
   // ── Parse students ────────────────────────────────────────
   var students = rawStudents.filter(function(s) {
     return s.id && String(s.id).match(/^HS\d+/i);
@@ -191,7 +193,11 @@ function getAllData(termId) {
     var classes = enrolls.map(function(e) {
       var cls     = classMap[String(e.class_id || '')] || {};
       var teacher = teacherMap[String(cls.teacher_id || '')] || {};
-      var bills     = billByEnroll[String(e.id || '')] || [];
+      var enrollTuition = parseFloat(e.tuition) || 0;
+      var effectiveTuition = enrollTuition || (parseFloat(cls.tuition_per_month) || 0);
+      var bills     = (billByEnroll[String(e.id || '')] || []).filter(function(b) {
+        return !b.month || String(b.month) <= currentMonth;
+      });
       var billDue   = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_due)  || 0); }, 0);
       var paid      = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
       var debt      = billDue > 0 ? Math.max(0, billDue - paid) : 0;
@@ -200,7 +206,7 @@ function getAllData(termId) {
         classId     : String(e.class_id || ''),
         className   : String(cls.name || ''),
         teacherName : String(teacher.name || ''),
-        tuition     : parseFloat(cls.tuition_per_month) || 0,
+        tuition     : effectiveTuition,
         enrollStatus: String(e.status || ''),
         billDue     : billDue,
         billPaid    : paid,
@@ -265,7 +271,9 @@ function getAllData(termId) {
     var cid = String(e.class_id || '');
     if (!cid) return;
     if (String(e.status) === 'Đang học') countByClass[cid] = (countByClass[cid] || 0) + 1;
-    var bills = billByEnroll[String(e.id || '')] || [];
+    var bills = (billByEnroll[String(e.id || '')] || []).filter(function(b) {
+      return !b.month || String(b.month) <= currentMonth;
+    });
     bills.forEach(function(b) {
       paidByClass[cid] = (paidByClass[cid] || 0) + (parseFloat(b.amount_paid) || 0);
       debtByClass[cid] = (debtByClass[cid] || 0) + (parseFloat(b.debt)        || 0);
@@ -500,6 +508,25 @@ function updateClassTuition(classId, tuition) {
   var tuiCol  = headers.indexOf('tuition_per_month');
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][idCol]) === String(classId)) {
+      sheet.getRange(i + 1, tuiCol + 1).setValue(parseFloat(tuition) || 0);
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+function updateEnrollmentTuition(enrollId, tuition) {
+  var sheet = getSheet('enrollments');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h) { return String(h).trim(); });
+  var idCol  = hdr.indexOf('id');
+  var tuiCol = hdr.indexOf('tuition');
+  if (tuiCol === -1) {
+    tuiCol = hdr.length;
+    sheet.getRange(1, tuiCol + 1).setValue('tuition');
+  }
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(enrollId)) {
       sheet.getRange(i + 1, tuiCol + 1).setValue(parseFloat(tuition) || 0);
       return { success: true };
     }
