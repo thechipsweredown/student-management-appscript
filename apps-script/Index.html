@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panda Happy</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --primary: #e07b39; --primary-dark: #c4632a; --primary-light: #fef0e7;
+  --teal: #0d9488; --teal-light: #ccfbf1;
+  --indigo: #4f46e5; --indigo-light: #e0e7ff;
+  --rose: #e11d48; --rose-light: #ffe4e6;
+  --success: #15803d; --success-light: #dcfce7;
+  --warning: #b45309; --warning-light: #fef3c7;
+  --danger: #b91c1c; --danger-light: #fee2e2;
+  --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+  --gray-400: #9ca3af; --gray-600: #4b5563; --gray-800: #1f2937;
+  --sidebar-bg: #1a2744; --sidebar-hover: rgba(255,255,255,.08); --sidebar-active: rgba(224,123,57,.18);
+  --bg: #f0ebe3; --sidebar-w: 230px; --header-h: 54px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--gray-800); }
+#app { display: flex; min-height: 100vh; }
+#sidebar { width: var(--sidebar-w); background: var(--sidebar-bg); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; }
+#main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.sidebar-logo { padding: 18px 20px 14px; border-bottom: 1px solid rgba(255,255,255,.08); display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 38px; height: 38px; background: var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; flex-shrink: 0; }
+.logo-text { font-weight: 700; font-size: 14px; line-height: 1.2; color: #fff; }
+.logo-sub  { font-size: 11px; color: rgba(255,255,255,.45); }
+.sidebar-nav { padding: 10px; flex: 1; overflow-y: auto; }
+.nav-section { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,.3); padding: 14px 12px 4px; text-transform: uppercase; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px; color: rgba(255,255,255,.65); transition: all .15s; margin-bottom: 1px; }
+.nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+.nav-item.active { background: var(--sidebar-active); color: var(--primary); font-weight: 600; }
+.nav-icon { font-size: 15px; width: 20px; text-align: center; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 11px; color: rgba(255,255,255,.4); }
+.sidebar-user { font-weight: 600; color: rgba(255,255,255,.75); font-size: 12px; margin-bottom: 2px; }
+#header { height: var(--header-h); background: #fff; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; padding: 0 24px; gap: 12px; position: sticky; top: 0; z-index: 40; }
+#page-title { font-size: 15px; font-weight: 700; flex: 1; color: var(--gray-800); }
+.header-btn { padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-outline { background: #fff; color: var(--gray-600); border: 1px solid var(--gray-200); }
+.btn-outline:hover { background: var(--gray-50); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+#content { padding: 20px 24px; flex: 1; }
+.view { display: none; }
+.view.active { display: block; }
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 18px; }
+.stat-card { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--gray-200); display: flex; align-items: center; gap: 14px; border-left: 4px solid transparent; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.stat-card.c-orange { border-left-color: var(--primary); }
+.stat-card.c-teal   { border-left-color: var(--teal); }
+.stat-card.c-indigo { border-left-color: var(--indigo); }
+.stat-card.c-rose   { border-left-color: var(--rose); }
+.stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.stat-icon.orange { background: var(--primary-light); }
+.stat-icon.teal   { background: var(--teal-light); }
+.stat-icon.indigo { background: var(--indigo-light); }
+.stat-icon.rose   { background: var(--rose-light); }
+.stat-label { font-size: 11px; color: var(--gray-400); margin-bottom: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+.stat-value { font-size: 24px; font-weight: 800; color: var(--gray-800); line-height: 1; }
+.stat-sub   { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+.charts-grid { display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: 14px; margin-bottom: 14px; }
+.chart-card { background: #fff; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--gray-200); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.chart-title { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--gray-800); display: flex; align-items: center; gap: 6px; }
+.table-card { background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); overflow: hidden; }
+.table-toolbar { padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--gray-200); flex-wrap: wrap; }
+.search-box { flex: 1; min-width: 200px; max-width: 320px; padding: 7px 12px 7px 34px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; outline: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center; }
+.search-box:focus { border-color: var(--primary); }
+select.filter-select { padding: 7px 10px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; background: #fff; cursor: pointer; outline: none; }
+select.filter-select:focus { border-color: var(--primary); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: var(--gray-50); padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; color: var(--gray-600); border-bottom: 1px solid var(--gray-200); white-space: nowrap; }
+td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--gray-50); }
+.table-pagination { padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--gray-200); font-size: 13px; color: var(--gray-600); }
+.page-info { flex: 1; }
+.page-btn { width: 30px; height: 30px; border: 1px solid var(--gray-200); border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
+.page-btn:hover { background: var(--gray-100); }
+.page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-green  { background: var(--success-light); color: var(--success); }
+.badge-red    { background: var(--danger-light);  color: var(--danger); }
+.badge-blue   { background: var(--primary-light); color: var(--primary); }
+.badge-yellow { background: var(--warning-light); color: var(--warning); }
+.badge-gray   { background: var(--gray-100); color: var(--gray-600); }
+.act-btn { background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 13px; color: var(--gray-600); transition: all .15s; }
+.act-btn:hover { background: var(--gray-100); }
+.act-btn.edit:hover  { color: var(--primary); }
+.act-btn.del:hover   { color: var(--danger); }
+.act-btn.pay:hover   { color: var(--success); }
+.act-btn.print:hover { color: var(--indigo); }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 16px; width: 90%; max-width: 560px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+.modal-header { padding: 20px 24px 0; display: flex; align-items: center; justify-content: space-between; }
+.modal-title  { font-size: 16px; font-weight: 700; }
+.modal-close  { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--gray-400); line-height: 1; }
+.modal-close:hover { color: var(--gray-800); }
+.modal-body   { padding: 20px 24px; }
+.modal-footer { padding: 0 24px 20px; display: flex; gap: 8px; justify-content: flex-end; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid .span2 { grid-column: span 2; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; }
+.form-control { width: 100%; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; outline: none; transition: border .15s; }
+.form-control:focus { border-color: var(--primary); }
+.student-preview { background: var(--gray-50); border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 13px; }
+.top-class-list { font-size: 13px; }
+.top-class-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+.top-class-row:last-child { border-bottom: none; }
+.top-class-bar-wrap { flex: 1; height: 6px; background: var(--gray-100); border-radius: 99px; overflow: hidden; }
+.top-class-bar { height: 6px; background: var(--primary); border-radius: 99px; }
+#loading { position: fixed; inset: 0; background: rgba(255,255,255,.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.spinner { width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #fff; background: var(--gray-800); transform: translateY(20px); opacity: 0; transition: all .25s; z-index: 9999; }
+#toast.show { transform: none; opacity: 1; }
+#toast.success { background: var(--success); }
+#toast.error   { background: var(--danger); }
+/* Settings tabs */
+.settings-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--gray-200); }
+.settings-tab { padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--gray-400); border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.settings-panel { display: none; }
+.settings-panel.active { display: block; }
+/* Print */
+#printArea { display: none; }
+@media print {
+  body > *:not(#printArea) { display: none !important; }
+  #printArea { display: block !important; font-family: Arial, sans-serif; padding: 20px; }
+  .receipt { max-width: 400px; margin: 0 auto; border: 1px solid #333; padding: 20px; }
+  .receipt-header { text-align: center; margin-bottom: 16px; }
+  .receipt-title { font-size: 18px; font-weight: bold; letter-spacing: 2px; margin: 8px 0; }
+  .receipt-row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 13px; }
+  .receipt-row.total { font-size: 15px; font-weight: bold; border-top: 1px solid #333; padding-top: 8px; margin-top: 8px; }
+  .receipt-words { font-style: italic; font-size: 12px; margin: 4px 0 12px; }
+  .receipt-sigs { display: flex; justify-content: space-around; margin-top: 30px; text-align: center; font-size: 12px; }
+  .receipt-sigs div { width: 120px; }
+  .receipt-sigs .sig-line { border-top: 1px solid #333; margin-top: 40px; padding-top: 4px; }
+}
+@media (max-width: 768px) {
+  #sidebar { transform: translateX(-100%); transition: transform .25s; }
+  #sidebar.open { transform: none; }
+  #main { margin-left: 0; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .span2 { grid-column: span 1; }
+}
+</style>
+</head>
+<body>
+<div id="printArea"></div>
+<div id="loading"><div class="spinner"></div><div style="font-size:14px;color:var(--gray-600)">Đang tải dữ liệu…</div></div>
+<div id="toast"></div>
+
+<!-- Modal: Student Detail -->
+<div class="modal-overlay" id="modalStudentDetail">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <span class="modal-title" id="sdTitle"></span>
+      <button class="modal-close" onclick="closeModal('modalStudentDetail')">×</button>
+    </div>
+    <div class="modal-body" id="sdBody"></div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalStudentDetail')">Đóng</button>
+      <button class="header-btn btn-primary" id="sdPayBtn" onclick="">💰 Thu tiền</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit Student -->
+<div class="modal-overlay" id="modalStudent">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalStudentTitle">Thêm học sinh</span>
+      <button class="modal-close" onclick="closeModal('modalStudent')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="s_id">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;padding:14px;background:var(--gray-50);border-radius:10px">
+        <div id="s_avatarPreview" style="width:72px;height:72px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden">
+          <img id="s_avatarImg" src="" style="width:100%;height:100%;object-fit:cover;display:none">
+          <span id="s_avatarInitial">?</span>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:6px">Ảnh học sinh</div>
+          <label style="cursor:pointer">
+            <input type="file" id="s_avatarFile" accept="image/*" style="display:none" onchange="onAvatarPicked(this)">
+            <span class="header-btn btn-outline" style="display:inline-flex">📷 Chọn ảnh</span>
+          </label>
+          <div id="s_avatarStatus" style="font-size:11px;color:var(--gray-400);margin-top:4px"></div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group span2"><label>Họ và tên *</label><input class="form-control" id="s_name" placeholder="Nguyễn Văn A"></div>
+        <div class="form-group"><label>Ngày sinh</label><input class="form-control" id="s_dob" type="date"></div>
+        <div class="form-group"><label>Giới tính</label>
+          <select class="form-control" id="s_gender"><option value="">-- Chọn --</option><option>Nam</option><option>Nữ</option></select>
+        </div>
+        <div class="form-group"><label>Trạng thái</label>
+          <select class="form-control" id="s_status">
+            <option value="Đang học">🟢 Đang học</option>
+            <option value="Kết thúc">🔴 Kết thúc</option>
+            <option value="Bảo lưu">🔵 Bảo lưu</option>
+            <option value="Học thử">📕 Học thử</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Lớp học</label><select class="form-control" id="s_classId"></select></div>
+        <div class="form-group span2"><label>Địa chỉ</label><input class="form-control" id="s_address"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalStudent')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="saveStudent()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add Payment -->
+<div class="modal-overlay" id="modalPayment">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Ghi nhận thanh toán</span>
+      <button class="modal-close" onclick="closeModal('modalPayment')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="payStudentPreview" class="student-preview" style="display:none"></div>
+      <div class="form-grid">
+        <div class="form-group span2">
+          <label>Học sinh *</label>
+          <input class="form-control" id="p_studentSearch" placeholder="Tìm tên học sinh…" list="studentDatalist" oninput="onPayStudentInput()">
+          <datalist id="studentDatalist"></datalist>
+        </div>
+        <div class="form-group span2">
+          <label>Lớp *</label>
+          <select class="form-control" id="p_classId"><option value="">-- Chọn học sinh trước --</option></select>
+        </div>
+        <div class="form-group"><label>Thanh toán tháng *</label><input class="form-control" id="p_month" type="month"></div>
+        <div class="form-group"><label>Số tiền (đ) *</label><input class="form-control" id="p_amount" type="number" min="0" step="50000"></div>
+        <div class="form-group"><label>Phương thức</label>
+          <select class="form-control" id="p_method"><option>Tiền mặt</option><option>Chuyển khoản</option></select>
+        </div>
+        <div class="form-group"><label>Nhân viên nhận</label><input class="form-control" id="p_staff"></div>
+        <div class="form-group span2"><label>Ghi chú</label><input class="form-control" id="p_note"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalPayment')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="savePayment()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- App layout -->
+<div id="app">
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🐼</div>
+      <div><div class="logo-text">Panda Happy</div><div class="logo-sub">Quản lý học sinh</div></div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Tổng quan</div>
+      <div class="nav-item active" onclick="showView('dashboard')" data-view="dashboard"><span class="nav-icon">📊</span> Bảng điều khiển</div>
+      <div class="nav-section">Quản lý</div>
+      <div class="nav-item" onclick="showView('students')" data-view="students"><span class="nav-icon">👩‍🎓</span> Học sinh</div>
+      <div class="nav-item" onclick="showView('payments')" data-view="payments"><span class="nav-icon">💰</span> Học phí</div>
+      <div class="nav-item" onclick="showView('classes')" data-view="classes"><span class="nav-icon">🏫</span> Lớp học</div>
+      <div class="nav-item" id="navSettings" onclick="showView('settings')" data-view="settings" style="display:none"><span class="nav-icon">⚙️</span> Cài đặt</div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebarUserName"></div>
+      <div id="sidebarUserRole"></div>
+    </div>
+  </nav>
+
+  <div id="main">
+    <div id="header">
+      <span id="page-title">Dashboard</span>
+      <div id="header-actions"></div>
+    </div>
+    <div id="content">
+
+      <!-- Dashboard -->
+      <div id="view-dashboard" class="view active">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <span style="font-size:12px;font-weight:600;color:var(--gray-400)">LỌC:</span>
+          <select class="filter-select" id="db_filterLop" onchange="renderDashboard()"><option value="">Tất cả lớp</option></select>
+          <select class="filter-select" id="db_filterMonth" onchange="renderDashboard()"><option value="">Tất cả tháng</option></select>
+          <button class="header-btn btn-outline" onclick="resetDashboardFilters()" style="font-size:12px;padding:6px 10px">✕ Xoá lọc</button>
+          <span id="db_filterNote" style="font-size:12px;color:var(--primary);font-weight:600;display:none"></span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card c-orange"><div class="stat-icon orange">👩‍🎓</div><div><div class="stat-label">Tổng học sinh</div><div class="stat-value" id="st-total">—</div></div></div>
+          <div class="stat-card c-teal"><div class="stat-icon teal">✅</div><div><div class="stat-label">Đang học</div><div class="stat-value" id="st-active">—</div></div></div>
+          <div class="stat-card c-indigo"><div class="stat-icon indigo">💵</div><div><div class="stat-label">Tổng thu</div><div class="stat-value" id="st-rev">—</div><div class="stat-sub" id="st-rev-sub"></div></div></div>
+          <div class="stat-card c-rose"><div class="stat-icon rose">⚠️</div><div><div class="stat-label">Tổng nợ</div><div class="stat-value" id="st-debt">—</div></div></div>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-card"><div class="chart-title">📈 Doanh thu theo tháng</div><canvas id="revenueChart" height="140"></canvas></div>
+          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><canvas id="classDonut" height="140"></canvas></div>
+          <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div><div id="topClassList" class="top-class-list"></div></div>
+        </div>
+        <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><canvas id="classChart" height="90"></canvas></div>
+      </div>
+
+      <!-- Students -->
+      <div id="view-students" class="view">
+        <div class="table-card">
+          <div class="table-toolbar">
+            <input class="search-box" id="studentSearch" placeholder="Tìm tên, mã HS…" oninput="renderStudentTable()">
+            <select class="filter-select" id="filterLop" onchange="renderStudentTable()"><option value="">Tất cả lớp</option></select>
+            <select class="filter-select" id="filterStatus" onchange="renderStudentTable()">
+              <option value="">Tất cả trạng thái</option>
+              <option value="Đang học">🟢 Đang học</option>
+              <option value="Kết thúc">🔴 Kết thúc</option>
+              <option value="Bảo lưu">🔵 Bảo lưu</option>
+              <option value="Học thử">📕 Học thử</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table><thead><tr>
+              <th>Mã HS</th><th>Họ và tên</th><th>Trạng thái</th>
+              <th>Lớp</th><th>Giáo viên</th><th>Nợ học phí</th><th></th>
+            </tr></thead><tbody id="studentTbody"></tbody></table>
+          </div>
+          <div class="table-pagination" id="studentPaging"></div>
+        </div>
+      </div>
+
+      <!-- Payments -->
+      <div id="view-payments" class="view">
+        <div class="table-card">
+          <div class="table-toolbar">
+            <input class="search-box" id="paySearch" placeholder="Tìm tên, lớp…" oninput="renderPaymentTable()">
+            <select class="filter-select" id="filterPayMonth" onchange="renderPaymentTable()"><option value="">Tất cả tháng</option></select>
+            <select class="filter-select" id="filterPayClass" onchange="renderPaymentTable()"><option value="">Tất cả lớp</option></select>
+          </div>
+          <div style="overflow-x:auto">
+            <table><thead><tr>
+              <th>Ngày TT</th><th>Học sinh</th><th>Lớp</th>
+              <th>Tháng TT</th><th>Số tiền</th><th>Phương thức</th><th>Nhân viên</th><th>Ghi chú</th><th></th>
+            </tr></thead><tbody id="paymentTbody"></tbody></table>
+          </div>
+          <div class="table-pagination" id="paymentPaging"></div>
+        </div>
+      </div>
+
+      <!-- Classes -->
+      <div id="view-classes" class="view">
+        <div id="classListView">
+          <div id="classGroupGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px"></div>
+        </div>
+        <div id="classDetailView" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+            <button class="header-btn btn-outline" onclick="backToClassList()">← Quay lại</button>
+            <span id="detailClassName" style="font-size:18px;font-weight:800"></span>
+            <span id="detailClassInfo" style="font-size:13px;color:var(--gray-400)"></span>
+          </div>
+          <div class="table-card">
+            <table><thead><tr>
+              <th>Mã HS</th><th>Họ và tên</th><th>Trạng thái</th>
+              <th>Ngày sinh</th><th>HP/tháng</th><th>Đã đóng</th><th>Nợ</th>
+            </tr></thead><tbody id="classDetailTbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div id="view-settings" class="view">
+        <div class="settings-tabs">
+          <div class="settings-tab active" onclick="switchSettingsTab('tuition')">💰 Học phí theo lớp</div>
+          <div class="settings-tab" onclick="switchSettingsTab('users')">👥 Phân quyền</div>
+        </div>
+        <div id="stab-tuition" class="settings-panel active">
+          <div class="table-card">
+            <div class="table-toolbar"><span style="font-size:13px;font-weight:600">Cấu hình học phí theo lớp</span></div>
+            <div style="overflow-x:auto">
+              <table><thead><tr><th>Lớp</th><th>Giáo viên</th><th>Học phí / tháng (đ)</th><th></th></tr></thead>
+              <tbody id="tuitionTbody"></tbody></table>
+            </div>
+          </div>
+        </div>
+        <div id="stab-users" class="settings-panel">
+          <div class="table-card">
+            <div class="table-toolbar">
+              <span style="font-size:13px;font-weight:600">Danh sách tài khoản</span>
+              <button class="header-btn btn-primary" onclick="openAddUser()" style="margin-left:auto">➕ Thêm</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table><thead><tr><th>Email</th><th>Vai trò</th><th>Tên hiển thị</th><th>Trạng thái</th><th></th></tr></thead>
+              <tbody id="userTbody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal: User -->
+<div class="modal-overlay" id="modalUser">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title" id="modalUserTitle">Thêm tài khoản</span>
+      <button class="modal-close" onclick="closeModal('modalUser')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group span2"><label>Email *</label><input class="form-control" id="u_email"></div>
+        <div class="form-group"><label>Vai trò</label>
+          <select class="form-control" id="u_role"><option value="admin">Admin</option><option value="teacher">Giáo viên</option></select>
+        </div>
+        <div class="form-group"><label>Trạng thái</label>
+          <select class="form-control" id="u_status"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+        </div>
+        <div class="form-group span2"><label>Tên hiển thị</label><input class="form-control" id="u_name"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="header-btn btn-outline" onclick="closeModal('modalUser')">Huỷ</button>
+      <button class="header-btn btn-primary" onclick="saveUser()">💾 Lưu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+var APP = { students: [], payments: [], classes: [], classGroups: [], stats: null, currentUser: null };
+var PAGE = { students: 1, payments: 1, pageSize: 30 };
+var CHARTS = {};
+var PALETTE = ['#e07b39','#0d9488','#4f46e5','#e11d48','#f59e0b','#10b981','#8b5cf6','#06b6d4','#ef4444','#84cc16'];
+
+// ═══════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════
+window._loadStart = Date.now();
+window.onload = function() {
+  google.script.run
+    .withSuccessHandler(function(user) {
+      APP.currentUser = user;
+      if (user.role === 'none') {
+        document.getElementById('loading').innerHTML =
+          '<div style="text-align:center"><div style="font-size:48px;margin-bottom:16px">🔒</div>' +
+          '<div style="font-size:16px;font-weight:700;margin-bottom:8px">Không có quyền truy cập</div>' +
+          '<div style="font-size:13px;color:var(--gray-400)">Email: ' + user.email + '</div>' +
+          '<div style="font-size:13px;color:var(--gray-400);margin-top:8px">Liên hệ admin để được cấp quyền.</div></div>';
+        return;
+      }
+      document.getElementById('sidebarUserName').textContent = user.name || user.email;
+      document.getElementById('sidebarUserRole').textContent = user.role === 'admin' ? '⚙️ Quản lý' : '👩‍🏫 Giáo viên';
+      if (user.role === 'admin') document.getElementById('navSettings').style.display = 'flex';
+
+      google.script.run
+        .withSuccessHandler(function(data) {
+          APP.students    = data.students    || [];
+          APP.payments    = data.payments    || [];
+          APP.classes     = data.classes     || [];
+          APP.classGroups = data.classGroups || [];
+          APP.stats       = data.stats       || {};
+          if (data._timing) {
+            var t = data._timing;
+            console.log('[Panda] Read:' + t.read + 'ms | Compute:' + t.compute + 'ms | Total:' + t.total + 'ms | Client:' + (Date.now()-window._loadStart) + 'ms');
+          }
+          document.getElementById('loading').style.display = 'none';
+          initUI();
+          renderDashboard();
+        })
+        .withFailureHandler(function(e) { showError(e.message); })
+        .getAllData();
+    })
+    .withFailureHandler(function(e) { showError(e.message); })
+    .getCurrentUser();
+};
+
+function showError(msg) {
+  document.getElementById('loading').innerHTML = '<div style="color:#c81e1e;font-size:14px">⚠️ Lỗi: ' + msg + '</div>';
+}
+
+function initUI() {
+  var lopOpts = APP.classes.map(function(c) { return '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>'; }).join('');
+  document.getElementById('filterLop').innerHTML += lopOpts;
+  document.getElementById('filterPayClass').innerHTML += lopOpts;
+
+  var sLop = document.getElementById('s_classId');
+  sLop.innerHTML = '<option value="">-- Không chọn lớp --</option>' + APP.classes.map(function(c) {
+    return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
+  }).join('');
+
+  var months = [...new Set(APP.payments.map(function(p) { return p.month; }).filter(Boolean))].sort().reverse();
+  var monthOpts = months.map(function(m) { return '<option value="' + m + '">' + m + '</option>'; }).join('');
+  document.getElementById('filterPayMonth').innerHTML += monthOpts;
+  document.getElementById('db_filterLop').innerHTML += lopOpts;
+  document.getElementById('db_filterMonth').innerHTML += monthOpts;
+
+  var dl = document.getElementById('studentDatalist');
+  dl.innerHTML = APP.students.map(function(s) {
+    return '<option value="' + esc(s.name) + '" data-id="' + esc(s.id) + '">';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+var VIEWS = {
+  dashboard: { title: 'Bảng điều khiển', actions: '' },
+  students : { title: 'Học sinh', actions: '<button class="header-btn btn-primary" onclick="openAddStudent()">➕ Thêm học sinh</button>' },
+  payments : { title: 'Học phí', actions: '<button class="header-btn btn-primary" onclick="openAddPayment()">➕ Ghi nhận thanh toán</button>' },
+  classes  : { title: 'Lớp học', actions: '' },
+  settings : { title: 'Cài đặt', actions: '' }
+};
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('view-' + name).classList.add('active');
+  var t = document.querySelector('.nav-item[data-view="' + name + '"]');
+  if (t) t.classList.add('active');
+  document.getElementById('page-title').textContent = VIEWS[name].title;
+  document.getElementById('header-actions').innerHTML = VIEWS[name].actions;
+  if (name === 'students') { PAGE.students = 1; renderStudentTable(); }
+  if (name === 'payments') { PAGE.payments = 1; renderPaymentTable(); }
+  if (name === 'classes')  renderClassGrid();
+  if (name === 'settings') renderSettings();
+}
+
+// ═══════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════
+function resetDashboardFilters() {
+  document.getElementById('db_filterLop').value   = '';
+  document.getElementById('db_filterMonth').value = '';
+  renderDashboard();
+}
+
+function renderDashboard() {
+  var fLop   = document.getElementById('db_filterLop').value;
+  var fMonth = document.getElementById('db_filterMonth').value;
+
+  var students = APP.students.filter(function(s) { return !fLop || s.primaryClass === fLop; });
+  var payments = APP.payments.filter(function(p) {
+    return (!fLop || p.className === fLop) && (!fMonth || p.month === fMonth);
+  });
+
+  var noteEl = document.getElementById('db_filterNote');
+  var notes  = [];
+  if (fLop)   notes.push('Lớp: ' + fLop);
+  if (fMonth) notes.push('Tháng: ' + fMonth);
+  noteEl.textContent = notes.length ? '→ Đang lọc: ' + notes.join(' · ') : '';
+  noteEl.style.display = notes.length ? 'inline' : 'none';
+
+  var totalRev  = payments.reduce(function(a, p) { return a + p.amount; }, 0);
+  var totalDebt = students.reduce(function(a, s) { return a + s.totalDebt; }, 0);
+  var active    = students.filter(function(s) { return s.status === 'Đang học'; }).length;
+
+  document.getElementById('st-total').textContent  = fmt(students.length);
+  document.getElementById('st-active').textContent = fmt(active);
+  document.getElementById('st-rev').textContent    = fmtMoney(totalRev);
+  document.getElementById('st-rev-sub').textContent = fmt(payments.length) + ' giao dịch';
+  document.getElementById('st-debt').textContent   = fmtMoney(totalDebt);
+
+  var classCount = {};
+  students.forEach(function(s) {
+    s.classes.forEach(function(c) { if (c.className) classCount[c.className] = (classCount[c.className] || 0) + 1; });
+  });
+
+  var monthlyMap = {};
+  payments.forEach(function(p) { if (p.month) monthlyMap[p.month] = (monthlyMap[p.month] || 0) + p.amount; });
+  var mr = Object.keys(monthlyMap).sort().map(function(m) { return { month: m, amount: monthlyMap[m] }; });
+
+  var classRevMap = {};
+  payments.forEach(function(p) { if (p.className) classRevMap[p.className] = (classRevMap[p.className] || 0) + p.amount; });
+
+  if (CHARTS.revenue) CHARTS.revenue.destroy();
+  CHARTS.revenue = new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: { labels: mr.map(function(m) { return m.month; }), datasets: [{ label: 'Doanh thu', data: mr.map(function(m) { return m.amount; }), backgroundColor: mr.map(function(_, i) { return PALETTE[i % PALETTE.length] + 'cc'; }), borderRadius: 8, borderSkipped: false }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: function(v) { return (v/1e6).toFixed(0) + 'tr'; } }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false } } } }
+  });
+
+  var topKeys = Object.keys(classCount).sort(function(a, b) { return classCount[b] - classCount[a]; }).slice(0, 6);
+  if (CHARTS.donut) CHARTS.donut.destroy();
+  CHARTS.donut = new Chart(document.getElementById('classDonut'), {
+    type: 'doughnut',
+    data: { labels: topKeys, datasets: [{ data: topKeys.map(function(k) { return classCount[k]; }), backgroundColor: PALETTE.slice(0, 6), borderWidth: 2, borderColor: '#fff' }] },
+    options: { cutout: '62%', plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 8, boxWidth: 12 } } } }
+  });
+
+  var cKeys = Object.keys(classCount).sort(function(a, b) { return classCount[b] - classCount[a]; });
+  if (CHARTS.cls) CHARTS.cls.destroy();
+  CHARTS.cls = new Chart(document.getElementById('classChart'), {
+    type: 'bar',
+    data: { labels: cKeys, datasets: [{ data: cKeys.map(function(k) { return classCount[k]; }), backgroundColor: cKeys.map(function(_, i) { return PALETTE[i % PALETTE.length] + 'bb'; }), borderRadius: 5, borderSkipped: false }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 5 }, grid: { color: '#f3f4f6' } }, x: { grid: { display: false }, ticks: { font: { size: 11 } } } } }
+  });
+
+  var tc = Object.keys(classRevMap).sort(function(a, b) { return classRevMap[b] - classRevMap[a]; }).slice(0, 8);
+  var maxRev = tc.length ? classRevMap[tc[0]] : 1;
+  document.getElementById('topClassList').innerHTML = tc.map(function(c, i) {
+    var pct = Math.round(classRevMap[c] / maxRev * 100);
+    return '<div class="top-class-row">' +
+      '<span style="width:64px;font-weight:700;font-size:12px;color:' + PALETTE[i % PALETTE.length] + '">' + esc(c) + '</span>' +
+      '<div class="top-class-bar-wrap"><div class="top-class-bar" style="width:' + pct + '%;background:' + PALETTE[i % PALETTE.length] + '"></div></div>' +
+      '<span style="width:80px;text-align:right;font-size:11px;font-weight:600">' + fmtMoney(classRevMap[c]) + '</span></div>';
+  }).join('') || '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">Không có dữ liệu</div>';
+}
+
+// ═══════════════════════════════════════════════
+//  STUDENTS TABLE
+// ═══════════════════════════════════════════════
+function getFilteredStudents() {
+  var q = document.getElementById('studentSearch').value.toLowerCase();
+  var lop = document.getElementById('filterLop').value;
+  var st  = document.getElementById('filterStatus').value;
+  return APP.students.filter(function(s) {
+    var matchQ  = !q  || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
+    var matchL  = !lop || s.classes.some(function(c) { return c.className === lop; });
+    var matchSt = !st  || s.status === st;
+    return matchQ && matchL && matchSt;
+  });
+}
+
+function renderStudentTable() {
+  var data  = getFilteredStudents();
+  var pages = Math.ceil(data.length / PAGE.pageSize) || 1;
+  PAGE.students = Math.min(PAGE.students, pages);
+  var start = (PAGE.students - 1) * PAGE.pageSize;
+  var slice = data.slice(start, start + PAGE.pageSize);
+
+  var tbody = slice.map(function(s) {
+    var classBadges = s.classes.slice(0, 2).map(function(c) {
+      return '<span class="badge badge-blue" style="margin-right:2px">' + esc(c.className) + '</span>';
+    }).join('') + (s.classes.length > 2 ? '<span class="badge badge-gray">+' + (s.classes.length - 2) + '</span>' : '');
+    var debtCell = s.totalDebt > 0
+      ? '<span style="color:var(--danger);font-weight:700">' + fmtMoney(s.totalDebt) + '</span>'
+      : '<span style="color:var(--gray-400);font-size:12px">—</span>';
+    return '<tr>' +
+      '<td><span style="font-family:monospace;color:var(--primary);font-size:12px">' + esc(s.id) + '</span></td>' +
+      '<td><div style="display:flex;align-items:center;gap:8px">' + avatarCircle(s, 30) + '<strong>' + esc(s.name) + '</strong></div></td>' +
+      '<td>' + statusBadge(s.status) + '</td>' +
+      '<td>' + (classBadges || '—') + '</td>' +
+      '<td style="color:var(--gray-600);font-size:12px">' + esc(s.primaryTeacher || '—') + '</td>' +
+      '<td>' + debtCell + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="act-btn edit" onclick=\'openEditStudent(' + JSON.stringify(s) + ')\'>✏️</button>' +
+        '<button class="act-btn" onclick=\'openStudentDetail(' + JSON.stringify(s) + ')\' title="Chi tiết">👁️</button>' +
+        '<button class="act-btn pay" onclick=\'openAddPayment("' + esc(s.id) + '")\'>💰</button>' +
+      '</td></tr>';
+  }).join('');
+  document.getElementById('studentTbody').innerHTML = tbody || '<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:40px">Không có dữ liệu</td></tr>';
+  renderPaging('studentPaging', pages, PAGE.students, function(p) { PAGE.students = p; renderStudentTable(); });
+  document.getElementById('studentPaging').querySelector('.page-info').textContent =
+    'Hiển thị ' + (start + 1) + '–' + Math.min(start + PAGE.pageSize, data.length) + ' / ' + data.length + ' học sinh';
+}
+
+function openStudentDetail(s) {
+  var pays = APP.payments.filter(function(p) { return p.studentId === s.id; });
+
+  var classRows = s.classes.map(function(c) {
+    return '<tr>' +
+      '<td><span class="badge badge-blue">' + esc(c.className) + '</span></td>' +
+      '<td style="font-size:12px">' + esc(c.teacherName) + '</td>' +
+      '<td style="font-weight:600">' + fmtMoney(c.tuition) + '</td>' +
+      '<td style="color:var(--success);font-weight:600">' + fmtMoney(c.billPaid) + '</td>' +
+      '<td style="color:' + (c.billDebt > 0 ? 'var(--danger)' : 'var(--gray-400)') + ';font-weight:' + (c.billDebt > 0 ? '700' : '400') + '">' +
+        (c.billDebt > 0 ? fmtMoney(c.billDebt) : '—') + '</td>' +
+    '</tr>';
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:12px">Chưa có lớp nào</td></tr>';
+
+  var payRows = pays.slice(0, 8).map(function(p) {
+    return '<tr>' +
+      '<td style="font-size:12px">' + esc(p.date) + '</td>' +
+      '<td><span class="badge badge-blue">' + esc(p.className) + '</span></td>' +
+      '<td style="font-size:12px">' + esc(p.month) + '</td>' +
+      '<td style="font-weight:700;color:var(--success)">' + fmtMoney(p.amount) + '</td>' +
+      '<td>' + methodBadge(p.method) + '</td>' +
+      '<td><button class="act-btn print" onclick=\'printReceipt(' + JSON.stringify(p) + ',' + JSON.stringify(s) + ')\' title="In phiếu">🖨️</button></td>' +
+    '</tr>';
+  }).join('');
+
+  var content =
+    '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding:14px;background:var(--gray-50);border-radius:12px">' +
+      (s.photoUrl ? '<img src="' + esc(s.photoUrl) + '" style="width:72px;height:72px;border-radius:50%;object-fit:cover;flex-shrink:0;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.12)">' : avatarCircle(s, 72)) +
+      '<div><div style="font-size:18px;font-weight:800">' + esc(s.name) + '</div>' +
+        '<div style="font-size:12px;color:var(--gray-400);margin-top:2px">' + esc(s.id) + '</div>' +
+        '<div style="margin-top:6px">' + statusBadge(s.status) + (s.totalDebt > 0 ? ' <span class="badge badge-red">Nợ ' + fmtMoney(s.totalDebt) + '</span>' : '') + '</div>' +
+      '</div></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">' +
+      infoRow('Mã HS', s.id) + infoRow('Ngày sinh', s.dob) +
+      infoRow('Giới tính', s.gender) + infoRow('Địa chỉ', s.address) +
+    '</div>' +
+    '<div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;text-transform:uppercase">Lớp học & Học phí</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">' +
+      '<thead><tr style="background:var(--gray-50)">' +
+        '<th style="padding:7px 10px;text-align:left;font-size:11px">Lớp</th>' +
+        '<th style="padding:7px 10px;text-align:left;font-size:11px">Giáo viên</th>' +
+        '<th style="padding:7px 10px;text-align:left;font-size:11px">HP/tháng</th>' +
+        '<th style="padding:7px 10px;text-align:left;font-size:11px">Đã đóng</th>' +
+        '<th style="padding:7px 10px;text-align:left;font-size:11px">Nợ</th>' +
+      '</tr></thead><tbody>' + classRows + '</tbody></table>' +
+    (pays.length ?
+      '<div style="font-size:12px;font-weight:700;color:var(--gray-600);margin-bottom:8px;text-transform:uppercase">Nhật kí thanh toán</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<thead><tr style="background:var(--gray-50)">' +
+          '<th style="padding:6px 8px;text-align:left;font-size:11px">Ngày</th>' +
+          '<th style="padding:6px 8px;text-align:left;font-size:11px">Lớp</th>' +
+          '<th style="padding:6px 8px;text-align:left;font-size:11px">Tháng TT</th>' +
+          '<th style="padding:6px 8px;text-align:left;font-size:11px">Số tiền</th>' +
+          '<th style="padding:6px 8px;text-align:left;font-size:11px">PT</th>' +
+          '<th style="padding:6px 8px"></th>' +
+        '</tr></thead><tbody>' + payRows + '</tbody></table>' +
+      (pays.length > 8 ? '<div style="font-size:11px;color:var(--gray-400);margin-top:6px">+ ' + (pays.length - 8) + ' giao dịch khác</div>' : '')
+    : '<div style="font-size:13px;color:var(--gray-400)">Chưa có lịch sử thanh toán</div>');
+
+  document.getElementById('sdTitle').textContent = s.name;
+  document.getElementById('sdBody').innerHTML = content;
+  document.getElementById('sdPayBtn').onclick = function() { closeModal('modalStudentDetail'); openAddPayment(s.id); };
+  openModal('modalStudentDetail');
+}
+
+// ═══════════════════════════════════════════════
+//  PAYMENTS TABLE
+// ═══════════════════════════════════════════════
+function getFilteredPayments() {
+  var q     = document.getElementById('paySearch').value.toLowerCase();
+  var month = document.getElementById('filterPayMonth').value;
+  var cls   = document.getElementById('filterPayClass').value;
+  return APP.payments.filter(function(p) {
+    var matchQ = !q     || p.studentName.toLowerCase().includes(q) || p.className.toLowerCase().includes(q);
+    var matchM = !month || p.month === month;
+    var matchC = !cls   || p.className === cls;
+    return matchQ && matchM && matchC;
+  });
+}
+
+function renderPaymentTable() {
+  var data  = getFilteredPayments();
+  var pages = Math.ceil(data.length / PAGE.pageSize) || 1;
+  PAGE.payments = Math.min(PAGE.payments, pages);
+  var start = (PAGE.payments - 1) * PAGE.pageSize;
+  var slice = data.slice(start, start + PAGE.pageSize);
+  var totalAmt = data.reduce(function(a, p) { return a + p.amount; }, 0);
+
+  var tbody = slice.map(function(p) {
+    var stu = APP.students.find(function(s) { return s.id === p.studentId; });
+    return '<tr>' +
+      '<td style="font-size:12px">' + esc(p.date) + '</td>' +
+      '<td><strong>' + esc(p.studentName) + '</strong><br><span style="font-size:11px;color:var(--gray-400)">' + esc(p.studentId) + '</span></td>' +
+      '<td>' + (p.className ? '<span class="badge badge-blue">' + esc(p.className) + '</span>' : '—') + '</td>' +
+      '<td style="font-size:12px">' + esc(p.month || '—') + '</td>' +
+      '<td style="font-weight:700;color:var(--success)">' + fmtMoney(p.amount) + '</td>' +
+      '<td>' + methodBadge(p.method) + '</td>' +
+      '<td style="font-size:12px;color:var(--gray-600)">' + esc(p.staff || '—') + '</td>' +
+      '<td style="font-size:12px;color:var(--gray-600)">' + esc(p.note || '') + '</td>' +
+      '<td><button class="act-btn print" onclick=\'printReceipt(' + JSON.stringify(p) + ',' + JSON.stringify(stu || {}) + ')\' title="In phiếu thu">🖨️</button></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('paymentTbody').innerHTML = tbody || '<tr><td colspan="9" style="text-align:center;color:var(--gray-400);padding:40px">Không có dữ liệu</td></tr>';
+  renderPaging('paymentPaging', pages, PAGE.payments, function(p) { PAGE.payments = p; renderPaymentTable(); });
+  document.getElementById('paymentPaging').querySelector('.page-info').textContent =
+    'Tổng: ' + fmtMoney(totalAmt) + ' (' + data.length + ' GD)';
+}
+
+// ═══════════════════════════════════════════════
+//  CLASSES GRID
+// ═══════════════════════════════════════════════
+function renderClassGrid() {
+  var classMap = {};
+  APP.classes.forEach(function(c) { classMap[c.name] = c; });
+  var groups = APP.classGroups.length ? APP.classGroups : [{name: 'Tất cả', classes: APP.classes.map(function(c) { return c.name; })}];
+  var groupColors = ['#e07b39', '#4f46e5'];
+
+  var html = groups.map(function(group, gi) {
+    var gc = groupColors[gi] || PALETTE[gi];
+    var rows = group.classes.map(function(cname, i) {
+      var c = classMap[cname] || { name: cname, teacher: '', count: 0, tuition: 0 };
+      return '<div onclick="openClassDetail(\'' + esc(cname) + '\')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--gray-100)" onmouseover="this.style.background=\'var(--gray-50)\'" onmouseout="this.style.background=\'\'">' +
+        '<div style="width:32px;height:32px;border-radius:8px;background:' + gc + '22;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800;color:' + gc + '">' + (i+1) + '</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">' + esc(cname) + '</div>' +
+          (c.teacher ? '<div style="font-size:11px;color:var(--gray-400)">' + esc(c.teacher) + '</div>' : '') +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0">' +
+          '<div style="font-weight:700;font-size:14px">' + c.count + ' <span style="font-size:11px;color:var(--gray-400);font-weight:400">HS</span></div>' +
+          '<div style="font-size:11px;color:var(--gray-600)">' + (c.tuition ? fmtMoney(c.tuition) + '/tháng' : '—') + '</div>' +
+        '</div>' +
+        '<span style="color:var(--gray-400);font-size:16px;margin-left:4px">›</span></div>';
+    }).join('');
+    return '<div style="background:#fff;border-radius:14px;border:1px solid var(--gray-200);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">' +
+      '<div style="padding:14px 16px;background:' + gc + ';display:flex;align-items:center;gap:8px">' +
+        '<span style="font-size:16px;font-weight:800;color:#fff">' + esc(group.name) + '</span>' +
+        '<span style="font-size:12px;color:rgba(255,255,255,.75);margin-left:auto">' + group.classes.length + ' lớp</span>' +
+      '</div><div>' + rows + '</div></div>';
+  }).join('');
+  document.getElementById('classGroupGrid').innerHTML = html || '<p style="color:var(--gray-400)">Không có lớp.</p>';
+}
+
+function openClassDetail(className) {
+  var students = APP.students.filter(function(s) {
+    return s.classes.some(function(c) { return c.className === className; });
+  });
+  students.sort(function(a, b) { return a.name.localeCompare(b.name, 'vi'); });
+
+  var cls = APP.classes.find(function(c) { return c.name === className; }) || {};
+  document.getElementById('detailClassName').textContent = className;
+  document.getElementById('detailClassInfo').textContent = students.length + ' học sinh · ' + esc(cls.teacher || '') + (cls.tuition ? ' · ' + fmtMoney(cls.tuition) + '/tháng' : '');
+
+  var tbody = students.map(function(s) {
+    var c = s.classes.find(function(c) { return c.className === className; }) || {};
+    return '<tr style="cursor:pointer" onclick=\'openStudentDetail(' + JSON.stringify(s) + ')\'>' +
+      '<td><span style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(s.id) + '</span></td>' +
+      '<td><div style="display:flex;align-items:center;gap:10px">' + avatarCircle(s, 32) + '<strong>' + esc(s.name) + '</strong></div></td>' +
+      '<td>' + statusBadge(s.status) + '</td>' +
+      '<td style="font-size:12px">' + esc(s.dob || '—') + '</td>' +
+      '<td style="font-weight:600">' + fmtMoney(c.tuition) + '</td>' +
+      '<td style="color:var(--success);font-weight:600">' + fmtMoney(c.billPaid) + '</td>' +
+      '<td style="color:' + (c.billDebt > 0 ? 'var(--danger)' : 'var(--gray-400)') + ';font-weight:' + (c.billDebt > 0 ? '700' : '400') + '">' + (c.billDebt > 0 ? fmtMoney(c.billDebt) : '—') + '</td>' +
+    '</tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--gray-400)">Không có học sinh</td></tr>';
+
+  document.getElementById('classDetailTbody').innerHTML = tbody;
+  document.getElementById('classListView').style.display   = 'none';
+  document.getElementById('classDetailView').style.display = 'block';
+}
+
+function backToClassList() {
+  document.getElementById('classDetailView').style.display = 'none';
+  document.getElementById('classListView').style.display   = 'block';
+}
+
+// ═══════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════
+function switchSettingsTab(tab) {
+  document.querySelectorAll('.settings-tab').forEach(function(el, i) {
+    el.classList.toggle('active', ['tuition','users'][i] === tab);
+  });
+  document.querySelectorAll('.settings-panel').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('stab-' + tab).classList.add('active');
+  if (tab === 'users') loadUsers();
+}
+
+function renderSettings() {
+  var tbody = APP.classes.map(function(c) {
+    return '<tr>' +
+      '<td><strong>' + esc(c.name) + '</strong></td>' +
+      '<td style="font-size:12px;color:var(--gray-600)">' + esc(c.teacher) + '</td>' +
+      '<td><input type="number" step="50000" class="form-control" style="width:150px;padding:5px 8px" id="tuition_' + esc(c.id) + '" value="' + (c.tuition || 0) + '"></td>' +
+      '<td><button class="header-btn btn-sm btn-primary" onclick="saveTuition(\'' + esc(c.id) + '\',\'' + esc(c.name) + '\')">Lưu</button></td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('tuitionTbody').innerHTML = tbody || '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray-400)">Không có lớp</td></tr>';
+}
+
+function saveTuition(classId, className) {
+  var val = parseFloat(document.getElementById('tuition_' + classId).value) || 0;
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        var c = APP.classes.find(function(c) { return c.id === classId; });
+        if (c) c.tuition = val;
+        toast('Đã cập nhật học phí ' + className + ' → ' + fmtMoney(val), 'success');
+      }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .updateClassTuition(classId, val);
+}
+
+var _usersCache = [];
+function loadUsers() {
+  google.script.run
+    .withSuccessHandler(function(users) {
+      _usersCache = users;
+      var tbody = users.map(function(u) {
+        return '<tr>' +
+          '<td>' + esc(u.email) + '</td>' +
+          '<td>' + (u.role === 'admin' ? '<span class="badge badge-blue">Admin</span>' : '<span class="badge badge-gray">Giáo viên</span>') + '</td>' +
+          '<td>' + esc(u.name) + '</td>' +
+          '<td>' + (u.status === 'active' ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Inactive</span>') + '</td>' +
+          '<td style="white-space:nowrap">' +
+            '<button class="act-btn edit" onclick=\'openEditUser(' + JSON.stringify(u) + ')\'>✏️</button>' +
+            '<button class="act-btn del" onclick=\'confirmDeleteUser("' + esc(u.email) + '")\'>🗑️</button>' +
+          '</td></tr>';
+      }).join('') || '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--gray-400)">Không có tài khoản</td></tr>';
+      document.getElementById('userTbody').innerHTML = tbody;
+    })
+    .withFailureHandler(function(e) { toast('Lỗi tải users: ' + e.message, 'error'); })
+    .getUsers();
+}
+
+function openAddUser() {
+  document.getElementById('modalUserTitle').textContent = 'Thêm tài khoản';
+  ['u_email','u_name'].forEach(function(id) { document.getElementById(id).value = ''; });
+  document.getElementById('u_role').value   = 'teacher';
+  document.getElementById('u_status').value = 'active';
+  document.getElementById('u_email').disabled = false;
+  openModal('modalUser');
+}
+
+function openEditUser(u) {
+  document.getElementById('modalUserTitle').textContent = 'Sửa tài khoản';
+  document.getElementById('u_email').value  = u.email;
+  document.getElementById('u_name').value   = u.name;
+  document.getElementById('u_role').value   = u.role;
+  document.getElementById('u_status').value = u.status;
+  document.getElementById('u_email').disabled = true;
+  openModal('modalUser');
+}
+
+function saveUser() {
+  var d = {
+    email: document.getElementById('u_email').value.trim(),
+    name : document.getElementById('u_name').value.trim(),
+    role : document.getElementById('u_role').value,
+    status: document.getElementById('u_status').value,
+    teacher_id: ''
+  };
+  if (!d.email) { toast('Nhập email!', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) { closeModal('modalUser'); loadUsers(); toast('Đã lưu tài khoản', 'success'); }
+    })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .saveUser(d);
+}
+
+function confirmDeleteUser(email) {
+  if (!confirm('Xoá tài khoản ' + email + '?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) { if (r.success) { loadUsers(); toast('Đã xoá', 'success'); } })
+    .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
+    .deleteUser(email);
+}
+
+// ═══════════════════════════════════════════════
+//  STUDENT CRUD
+// ═══════════════════════════════════════════════
+function avatarCircle(s, size) {
+  size = size || 36;
+  if (s && s.photoUrl) {
+    return '<img src="' + esc(s.photoUrl) + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">';
+  }
+  var initial = ((s && s.name) || '?').trim()[0].toUpperCase();
+  var colors  = ['#e07b39','#0d9488','#4f46e5','#e11d48','#f59e0b','#10b981'];
+  var bg = colors[((s && s.id) ? s.id.charCodeAt(s.id.length - 1) : 0) % colors.length];
+  return '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:' + Math.round(size * 0.38) + 'px;font-weight:700;color:#fff;flex-shrink:0">' + initial + '</div>';
+}
+
+function setAvatarPreview(url, name) {
+  var img = document.getElementById('s_avatarImg');
+  var ini = document.getElementById('s_avatarInitial');
+  if (url) { img.src = url; img.style.display = 'block'; ini.style.display = 'none'; }
+  else { img.style.display = 'none'; ini.style.display = 'block'; ini.textContent = name ? name.trim()[0].toUpperCase() : '?'; }
+}
+
+function onAvatarPicked(input) {
+  if (!input.files || !input.files[0]) return;
+  var file   = input.files[0];
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = document.getElementById('s_avatarImg');
+    img.src = e.target.result; img.style.display = 'block';
+    document.getElementById('s_avatarInitial').style.display = 'none';
+    document.getElementById('s_avatarStatus').textContent = file.name + ' — chưa lưu';
+    document.getElementById('s_avatarStatus').style.color = 'var(--warning)';
+    input._base64 = e.target.result.split(',')[1]; input._mimeType = file.type; input._hasNew = true;
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadAvatarIfNeeded(studentId, onDone) {
+  var fi = document.getElementById('s_avatarFile');
+  if (!fi._hasNew) { onDone(); return; }
+  document.getElementById('s_avatarStatus').textContent = 'Đang upload…';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      fi._hasNew = false;
+      document.getElementById('s_avatarStatus').textContent = r.success ? '✓ Đã lưu ảnh' : 'Lỗi upload';
+      document.getElementById('s_avatarStatus').style.color = r.success ? 'var(--success)' : 'var(--danger)';
+      if (r.success) { var s = APP.students.find(function(st) { return st.id === studentId; }); if (s) s.photoUrl = r.url; }
+      onDone();
+    })
+    .withFailureHandler(function(e) { document.getElementById('s_avatarStatus').textContent = 'Lỗi: ' + e.message; onDone(); })
+    .uploadAvatar(studentId, fi._base64, fi._mimeType);
+}
+
+function openAddStudent() {
+  document.getElementById('modalStudentTitle').textContent = 'Thêm học sinh';
+  ['s_id','s_name','s_address'].forEach(function(id) { document.getElementById(id).value = ''; });
+  document.getElementById('s_dob').value    = '';
+  document.getElementById('s_gender').value = '';
+  document.getElementById('s_status').value = 'Đang học';
+  document.getElementById('s_classId').value = '';
+  var fi = document.getElementById('s_avatarFile');
+  fi._hasNew = false; fi.value = '';
+  document.getElementById('s_avatarStatus').textContent = '';
+  setAvatarPreview('', '');
+  openModal('modalStudent');
+}
+
+function openEditStudent(s) {
+  document.getElementById('modalStudentTitle').textContent = 'Sửa — ' + s.name;
+  document.getElementById('s_id').value      = s.id;
+  document.getElementById('s_name').value    = s.name;
+  document.getElementById('s_gender').value  = s.gender || '';
+  document.getElementById('s_status').value  = s.status || 'Đang học';
+  document.getElementById('s_address').value = s.address || '';
+  if (s.dob && s.dob.includes('/')) {
+    var p = s.dob.split('/');
+    document.getElementById('s_dob').value = p[2] + '-' + p[1] + '-' + p[0];
+  } else document.getElementById('s_dob').value = '';
+  document.getElementById('s_classId').value = (s.classes[0] && s.classes[0].classId) || '';
+  var fi = document.getElementById('s_avatarFile');
+  fi._hasNew = false; fi._base64 = ''; fi._mimeType = '';
+  document.getElementById('s_avatarStatus').textContent = '';
+  setAvatarPreview(s.photoUrl || '', s.name);
+  openModal('modalStudent');
+}
+
+function saveStudent() {
+  var name = document.getElementById('s_name').value.trim();
+  if (!name) { toast('Vui lòng nhập họ và tên!', 'error'); return; }
+  var d = {
+    id      : document.getElementById('s_id').value,
+    name    : name,
+    dob     : document.getElementById('s_dob').value,
+    gender  : document.getElementById('s_gender').value,
+    status  : document.getElementById('s_status').value,
+    address : document.getElementById('s_address').value,
+    classId : document.getElementById('s_classId').value
+  };
+  var isEdit = !!d.id;
+  closeModal('modalStudent');
+  showLoading(true);
+  var onSaved = function(sid) {
+    uploadAvatarIfNeeded(sid, function() {
+      showLoading(false);
+      renderStudentTable();
+      toast((isEdit ? 'Đã cập nhật ' : 'Đã thêm ') + name + ' ✓', 'success');
+    });
+  };
+  if (isEdit) {
+    google.script.run.withSuccessHandler(function(r) {
+      if (!r.success) { showLoading(false); toast('Lỗi: ' + (r.error || ''), 'error'); return; }
+      var idx = APP.students.findIndex(function(s) { return s.id === d.id; });
+      if (idx > -1) Object.assign(APP.students[idx], { name: d.name, dob: d.dob, gender: d.gender, status: d.status, address: d.address });
+      onSaved(d.id);
+    }).withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); }).updateStudent(d);
+  } else {
+    google.script.run.withSuccessHandler(function(r) {
+      if (!r.success) { showLoading(false); toast('Lỗi thêm học sinh', 'error'); return; }
+      d.id = r.id; d.classes = []; d.primaryClass = ''; d.primaryTeacher = ''; d.totalDebt = 0; d.photoUrl = '';
+      APP.students.unshift(d);
+      onSaved(r.id);
+    }).withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); }).addStudent(d);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  PAYMENT CRUD
+// ═══════════════════════════════════════════════
+function openAddPayment(prefillStudentId) {
+  document.getElementById('p_studentSearch').value = '';
+  document.getElementById('p_classId').innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
+  document.getElementById('p_amount').value  = '';
+  document.getElementById('p_note').value    = '';
+  document.getElementById('p_staff').value   = APP.currentUser ? APP.currentUser.name : '';
+  document.getElementById('p_method').value  = 'Tiền mặt';
+  var now = new Date();
+  document.getElementById('p_month').value   = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  document.getElementById('payStudentPreview').style.display = 'none';
+
+  if (prefillStudentId) {
+    var s = APP.students.find(function(st) { return st.id === prefillStudentId; });
+    if (s) {
+      document.getElementById('p_studentSearch').value = s.name;
+      onPayStudentInput();
+    }
+  }
+  openModal('modalPayment');
+}
+
+function onPayStudentInput() {
+  var val = document.getElementById('p_studentSearch').value.trim();
+  var s   = APP.students.find(function(st) { return st.name === val || st.id === val; });
+  var preview = document.getElementById('payStudentPreview');
+  var clsSel  = document.getElementById('p_classId');
+  if (s) {
+    preview.style.display = 'block';
+    preview.innerHTML = '<strong>' + esc(s.name) + '</strong> · ' + esc(s.id) +
+      (s.totalDebt > 0 ? ' · <span style="color:var(--danger);font-weight:700">Nợ ' + fmtMoney(s.totalDebt) + '</span>' : '');
+    clsSel.innerHTML = '<option value="">-- Chọn lớp --</option>' + s.classes.map(function(c) {
+      return '<option value="' + esc(c.classId) + '">' + esc(c.className) + (c.tuition ? ' (' + fmtMoney(c.tuition) + ')' : '') + '</option>';
+    }).join('');
+    if (s.classes.length === 1) {
+      clsSel.value = s.classes[0].classId;
+      document.getElementById('p_amount').value = s.classes[0].tuition || '';
+    }
+  } else {
+    preview.style.display = 'none';
+    clsSel.innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
+  }
+}
+
+function savePayment() {
+  var studentName = document.getElementById('p_studentSearch').value.trim();
+  var s = APP.students.find(function(st) { return st.name === studentName || st.id === studentName; });
+  var classId = document.getElementById('p_classId').value;
+  var amount  = parseFloat(document.getElementById('p_amount').value);
+  var month   = document.getElementById('p_month').value;
+  if (!s) { toast('Chọn học sinh hợp lệ!', 'error'); return; }
+  if (!classId) { toast('Chọn lớp!', 'error'); return; }
+  if (!amount || amount <= 0) { toast('Nhập số tiền hợp lệ!', 'error'); return; }
+  if (!month) { toast('Chọn tháng thanh toán!', 'error'); return; }
+
+  var cls = APP.classes.find(function(c) { return c.id === classId; });
+  var d = { studentId: s.id, classId: classId, month: month, amount: amount, method: document.getElementById('p_method').value, staff: document.getElementById('p_staff').value, note: document.getElementById('p_note').value };
+
+  closeModal('modalPayment');
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(r) {
+      showLoading(false);
+      if (r.success) {
+        var newPay = { id: r.paymentId, billId: r.billId || '', date: new Date().toLocaleDateString('vi-VN').split('/').map(function(p, i) { return i < 2 ? p.padStart(2,'0') : p; }).join('/'), studentId: s.id, studentName: s.name, classId: classId, className: cls ? cls.name : '', month: month, amount: amount, method: d.method, staff: d.staff, note: d.note };
+        APP.payments.unshift(newPay);
+        renderPaymentTable();
+        toast('Đã ghi nhận ' + fmtMoney(amount) + ' ✓', 'success');
+        if (confirm('In phiếu thu?')) printReceipt(newPay, s);
+      } else toast('Lỗi lưu thanh toán', 'error');
+    })
+    .withFailureHandler(function(e) { showLoading(false); toast('Lỗi: ' + e.message, 'error'); })
+    .addPayment(d);
+}
+
+// ═══════════════════════════════════════════════
+//  RECEIPT / PHIẾU THU
+// ═══════════════════════════════════════════════
+function numToWords(n) {
+  if (!n) return 'không đồng';
+  var u = ['','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+  function r3(n) {
+    var s = '';
+    if (n >= 100) { s += u[Math.floor(n/100)] + ' trăm '; n %= 100; }
+    if (n >= 20)  { s += u[Math.floor(n/10)] + ' mươi '; n %= 10; if (n === 5) s += 'lăm '; else if (n) s += u[n] + ' '; }
+    else if (n >= 10) { var teens = ['mười','mười một','mười hai','mười ba','mười bốn','mười lăm','mười sáu','mười bảy','mười tám','mười chín']; s += teens[n-10] + ' '; }
+    else if (n) { s += (s ? 'lẻ ' : '') + u[n] + ' '; }
+    return s.trim();
+  }
+  n = Math.round(n);
+  var result = '';
+  var tỷ = Math.floor(n/1e9); n %= 1e9;
+  var tr = Math.floor(n/1e6); n %= 1e6;
+  var ng = Math.floor(n/1e3); n %= 1e3;
+  if (tỷ) result += r3(tỷ) + ' tỷ ';
+  if (tr)  result += r3(tr)  + ' triệu ';
+  if (ng)  result += r3(ng)  + ' nghìn ';
+  if (n)   result += r3(n);
+  return result.trim() + ' đồng';
+}
+
+function printReceipt(pay, stu) {
+  var now = pay.date || new Date().toLocaleDateString('vi-VN');
+  document.getElementById('printArea').innerHTML =
+    '<div class="receipt">' +
+      '<div class="receipt-header">' +
+        '<div style="font-size:13px;font-weight:bold">TRUNG TÂM NGOẠI NGỮ PANDA HAPPY</div>' +
+        '<div style="font-size:11px">ĐT: 0375.458.815</div>' +
+        '<div class="receipt-title">PHIẾU THU</div>' +
+        '<div style="font-size:11px">Số: ' + esc(pay.id || '') + ' &nbsp;·&nbsp; Ngày: ' + esc(now) + '</div>' +
+      '</div>' +
+      '<div class="receipt-row"><span>Họ tên học sinh:</span><span><strong>' + esc((stu && stu.name) || pay.studentName || '') + '</strong></span></div>' +
+      '<div class="receipt-row"><span>Mã học sinh:</span><span>' + esc((stu && stu.id) || pay.studentId || '') + '</span></div>' +
+      '<div class="receipt-row"><span>Lớp:</span><span>' + esc(pay.className || '') + '</span></div>' +
+      '<div class="receipt-row"><span>Thanh toán tháng:</span><span>' + esc(pay.month || '') + '</span></div>' +
+      '<div class="receipt-row"><span>Phương thức:</span><span>' + esc(pay.method || '') + '</span></div>' +
+      (pay.staff ? '<div class="receipt-row"><span>Nhân viên nhận:</span><span>' + esc(pay.staff) + '</span></div>' : '') +
+      '<div class="receipt-row total"><span>Số tiền:</span><span>' + (pay.amount || 0).toLocaleString('vi-VN') + ' đồng</span></div>' +
+      '<div class="receipt-words">Bằng chữ: ' + numToWords(pay.amount) + '</div>' +
+      (pay.note ? '<div style="font-size:12px;margin-bottom:8px">Ghi chú: ' + esc(pay.note) + '</div>' : '') +
+      '<div class="receipt-sigs">' +
+        '<div><div>Người nộp tiền</div><div class="sig-line">(Ký, họ tên)</div></div>' +
+        '<div><div>Nhân viên nhận</div><div class="sig-line">' + esc(pay.staff || '') + '</div></div>' +
+      '</div>' +
+    '</div>';
+  window.print();
+}
+
+// ═══════════════════════════════════════════════
+//  PAGINATION & HELPERS
+// ═══════════════════════════════════════════════
+function renderPaging(containerId, pages, current, onClick) {
+  var el    = document.getElementById(containerId);
+  var btns  = '';
+  var start = Math.max(1, current - 2);
+  var end   = Math.min(pages, current + 2);
+  if (current > 1) btns += '<button class="page-btn" onclick="(' + onClick + ')(' + (current-1) + ')">‹</button>';
+  for (var p = start; p <= end; p++) {
+    btns += '<button class="page-btn' + (p === current ? ' active' : '') + '" onclick="(' + onClick + ')(' + p + ')">' + p + '</button>';
+  }
+  if (current < pages) btns += '<button class="page-btn" onclick="(' + onClick + ')(' + (current+1) + ')">›</button>';
+  el.innerHTML = '<span class="page-info"></span>' + btns;
+}
+
+function infoRow(label, val, html) {
+  return '<div style="background:var(--gray-50);border-radius:8px;padding:8px 10px">' +
+    '<div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">' + label + '</div>' +
+    '<div style="font-size:13px;font-weight:600">' + (html || esc(val || '—')) + '</div></div>';
+}
+
+function statusBadge(s) {
+  if (!s) return '';
+  if (s === 'Đang học') return '<span class="badge badge-green">🟢 Đang học</span>';
+  if (s === 'Kết thúc') return '<span class="badge badge-red">🔴 Kết thúc</span>';
+  if (s === 'Bảo lưu')  return '<span class="badge badge-blue">🔵 Bảo lưu</span>';
+  if (s === 'Học thử')  return '<span class="badge badge-yellow">📕 Học thử</span>';
+  return '<span class="badge badge-gray">' + esc(s) + '</span>';
+}
+
+function methodBadge(m) {
+  if (!m) return '—';
+  if (String(m).includes('khoản')) return '<span class="badge badge-blue">🏦 CK</span>';
+  return '<span class="badge badge-green">💵 TM</span>';
+}
+
+function fmtMoney(n) {
+  if (!n) return '0 đ';
+  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/, '') + 'tr';
+  return n.toLocaleString('vi-VN') + ' đ';
+}
+
+function fmt(n) { return (n || 0).toLocaleString('vi-VN'); }
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function showLoading(show) { document.getElementById('loading').style.display = show ? 'flex' : 'none'; }
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  setTimeout(function() { el.className = ''; }, 3200);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(function(el) {
+  el.addEventListener('click', function(e) { if (e.target === el) el.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
