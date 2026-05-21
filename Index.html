@@ -248,13 +248,13 @@ tr:hover td { background: var(--gray-50); }
       <button class="modal-close" onclick="closeModal('modalPayment')">×</button>
     </div>
     <div class="modal-body">
-      <div id="payStudentPreview" class="student-preview" style="display:none"></div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label>Học sinh *</label>
+        <input class="form-control" id="p_studentSearch" placeholder="Nhập tên hoặc mã HS…" autocomplete="off" oninput="renderPayStudentList()">
+        <div id="payStudentList" style="display:none;max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid var(--gray-200);border-radius:8px"></div>
+      </div>
+      <div id="payStudentPreview" class="student-preview" style="display:none;margin-bottom:10px"></div>
       <div class="form-grid">
-        <div class="form-group span2">
-          <label>Học sinh *</label>
-          <input class="form-control" id="p_studentSearch" placeholder="Tìm tên học sinh…" list="studentDatalist" oninput="onPayStudentInput()">
-          <datalist id="studentDatalist"></datalist>
-        </div>
         <div class="form-group span2">
           <label>Lớp *</label>
           <select class="form-control" id="p_classId"><option value="">-- Chọn học sinh trước --</option></select>
@@ -849,7 +849,9 @@ window.onload = function() {
           else if (name === 'classes')  renderClassGrid();
           // Nếu modal thanh toán đang mở và đang chờ dữ liệu lớp → refresh ngay
           if (window._pendingPayStudentName && document.getElementById('modalPayment').classList.contains('open')) {
-            onPayStudentInput();
+            var curName = document.getElementById('p_studentSearch').value.trim();
+            var s2 = APP.students.find(function(st) { return st.name === curName; });
+            if (s2) { _applyPayStudent(s2); }
           }
         })
         .withFailureHandler(function(e) { showError(e.message); })
@@ -2323,6 +2325,8 @@ function saveStudent() {
 // ═══════════════════════════════════════════════
 function openAddPayment(prefillStudentId) {
   document.getElementById('p_studentSearch').value = '';
+  document.getElementById('payStudentList').style.display = 'none';
+  document.getElementById('payStudentList').innerHTML = '';
   document.getElementById('p_classId').innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
   document.getElementById('p_amount').value  = '';
   document.getElementById('p_note').value    = '';
@@ -2331,35 +2335,65 @@ function openAddPayment(prefillStudentId) {
   var now = new Date();
   document.getElementById('p_month').value   = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   document.getElementById('payStudentPreview').style.display = 'none';
+  window._pendingPayStudentName = null;
 
   if (prefillStudentId) {
     var s = APP.students.find(function(st) { return st.id === prefillStudentId; });
     if (s) {
       document.getElementById('p_studentSearch').value = s.name;
-      onPayStudentInput();
+      _applyPayStudent(s);
     }
   }
   openModal('modalPayment');
 }
 
-function onPayStudentInput() {
-  var val     = document.getElementById('p_studentSearch').value.trim();
+function renderPayStudentList() {
+  var q    = document.getElementById('p_studentSearch').value.trim().toLowerCase();
+  var list = document.getElementById('payStudentList');
   var preview = document.getElementById('payStudentPreview');
   var clsSel  = document.getElementById('p_classId');
-  var s       = APP.students.find(function(st) { return st.name === val || st.id === val; });
-  if (!s) {
+
+  if (!q) {
+    list.style.display = 'none';
     preview.style.display = 'none';
     clsSel.innerHTML = '<option value="">-- Chọn học sinh trước --</option>';
-    clsSel.disabled  = false;
+    window._pendingPayStudentName = null;
     return;
   }
-  // Nếu đang ở quick phase, classes chưa load → chờ full data
+
+  var filtered = APP.students.filter(function(s) {
+    return s.name.toLowerCase().indexOf(q) !== -1 || s.id.toLowerCase().indexOf(q) !== -1;
+  }).slice(0, 30);
+
+  list.style.display = 'block';
+  list.innerHTML = filtered.map(function(s) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--gray-100);cursor:pointer" ' +
+      'onmousedown="selectPayStudentFromList(\'' + esc(s.id) + '\')" ' +
+      'onmouseover="this.style.background=\'var(--gray-50)\'" onmouseout="this.style.background=\'\'">' +
+      avatarCircle(s, 28) +
+      '<div style="flex:1"><div style="font-size:13px;font-weight:600">' + esc(s.name) + '</div>' +
+      '<div style="font-size:11px;color:var(--gray-400)">' + esc(s.id) + '</div></div>' +
+      '</div>';
+  }).join('') || '<div style="padding:16px;color:var(--gray-400);text-align:center;font-size:13px">Không tìm thấy học sinh</div>';
+}
+
+function selectPayStudentFromList(studentId) {
+  var s = APP.students.find(function(st) { return st.id === studentId; });
+  if (!s) return;
+  document.getElementById('p_studentSearch').value = s.name;
+  document.getElementById('payStudentList').style.display = 'none';
+  _applyPayStudent(s);
+}
+
+function _applyPayStudent(s) {
+  var preview = document.getElementById('payStudentPreview');
+  var clsSel  = document.getElementById('p_classId');
   if (s.classes.length === 0 && APP._phase === 'quick') {
     preview.style.display = 'block';
     preview.innerHTML = '<strong>' + esc(s.name) + '</strong> · <em style="color:var(--gray-400)">Đang tải thông tin lớp…</em>';
     clsSel.innerHTML = '<option value="">Đang tải…</option>';
     clsSel.disabled  = true;
-    window._pendingPayStudentName = val; // lưu để full data tự refresh
+    window._pendingPayStudentName = s.name;
     return;
   }
   clsSel.disabled = false;
