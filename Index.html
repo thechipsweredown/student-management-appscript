@@ -155,7 +155,8 @@ tr:hover td { background: var(--gray-50); }
 .pt-sigs   { display: flex; justify-content: space-around; text-align: center; font-size: 13px; margin-bottom: 8px; }
 .pt-sigs > div { width: 160px; }
 .pt-sigs .pt-sig-space { height: 52px; }
-.pt-note  { border-top: 1.5px dashed #aaa; padding-top: 10px; margin-top: 10px; font-size: 12px; }
+.pt-note  { border-top: 1.5px dashed #aaa; padding-top: 10px; margin-top: 10px; font-size: 12px; display: flex; align-items: baseline; gap: 6px; }
+.pt-note-line { flex: 1; border-bottom: 1px dotted #555; height: 1em; }
 @media (max-width: 768px) {
   #sidebar { transform: translateX(-100%); transition: transform .25s; }
   #sidebar.open { transform: none; }
@@ -1965,7 +1966,7 @@ function printReceipt(pay, stu) {
           '<div><strong>Người nộp tiền</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
           '<div><strong>Người lập phiếu</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
         '</div>' +
-        '<div class="pt-note">GHI CHÚ:..........................................................................................................................................................................................................................................</div>' +
+        '<div class="pt-note"><span>GHI CHÚ:</span><span class="pt-note-line"></span></div>' +
       '</div>' +
     '</div>';
 
