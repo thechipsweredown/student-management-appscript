@@ -587,6 +587,7 @@ function updateStudent(d) {
 // ── Payment ───────────────────────────────────────────────────
 function addPayment(d) {
   // d: {studentId, classId, termId, enrollId?, tuition?, month, amount, method, staff, note}
+  // Policy: mỗi payment = 1 bill mới (ledger style). Không lookup/accumulate.
   var enrollSheet = getSheet('enrollments');
   var billSheet   = getSheet('monthly_bills');
   var paySheet    = getSheet('payments');
@@ -596,7 +597,6 @@ function addPayment(d) {
   var tuition = parseFloat(d.tuition) || 0;
 
   if (!eid) {
-    // Fallback: tìm trong enrollments (chỉ khi frontend chưa có)
     var enrollData = enrollSheet.getDataRange().getValues();
     var eHdr = enrollData[0].map(function(h) { return String(h).trim(); });
     for (var i = 1; i < enrollData.length; i++) {
@@ -613,64 +613,33 @@ function addPayment(d) {
     }
   }
 
-  // 2. Tìm bill bằng TextFinder thay vì scan toàn bộ sheet
-  var bHdr = billSheet.getRange(1, 1, 1, billSheet.getLastColumn()).getValues()[0].map(function(h){ return String(h).trim(); });
-  var enrCol   = bHdr.indexOf('enrollment_id') + 1;
-  var monthCol = bHdr.indexOf('month') + 1;
-  var idCol    = bHdr.indexOf('id') + 1;
-  var dueCol   = bHdr.indexOf('amount_due') + 1;
-  var paidCol  = bHdr.indexOf('amount_paid') + 1;
+  // 2. Tạo bill mới
+  var amt    = parseFloat(d.amount) || 0;
+  var amtDue = tuition;
+  var debt   = Math.max(0, amtDue - amt);
+  var status = debt === 0 ? 'Đã thanh toán' : (amt > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
+  var bid    = genId('monthly_bills', 'BILL');
+  var billRow = [bid, eid, d.month, amtDue, amt, debt, status, ''];
 
-  var bid = '', billRow = -1, prevPaid = 0, amtDue = tuition;
-  var matches = billSheet.createTextFinder(eid).matchEntireCell(true).findAll();
-  for (var m = 0; m < matches.length; m++) {
-    var r = matches[m].getRow();
-    if (matches[m].getColumn() !== enrCol) continue;
-    // Đọc nguyên 1 row chứa match (1 API call mỗi match nhưng thường <5 matches/enrollment)
-    var rowVals = billSheet.getRange(r, 1, 1, bHdr.length).getValues()[0];
-    if (_normalizeMonth(rowVals[monthCol - 1]) === _normalizeMonth(d.month)) {
-      bid = String(rowVals[idCol - 1]);
-      billRow = r;
-      prevPaid = parseFloat(rowVals[paidCol - 1]) || 0;
-      amtDue   = parseFloat(rowVals[dueCol  - 1]) || tuition;
-      break;
-    }
-  }
-
-  var amt = parseFloat(d.amount) || 0;
-  if (!bid) {
-    bid = genId('monthly_bills', 'BILL');
-    var debt   = Math.max(0, amtDue - amt);
-    var status = debt === 0 ? 'Đã thanh toán' : (amt > 0 ? 'Thanh toán một phần' : 'Chưa thanh toán');
-    billSheet.appendRow([bid, eid, d.month, amtDue, amt, debt, status, '']);
+  // Dùng Sheets API với RAW để cột month không bị auto-convert thành date
+  var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+  if (typeof Sheets !== 'undefined') {
+    Sheets.Spreadsheets.Values.append(
+      { values: [billRow] }, ssId, 'monthly_bills',
+      { valueInputOption: 'RAW' }
+    );
   } else {
-    var newPaid = prevPaid + amt;
-    var newDebt = Math.max(0, amtDue - newPaid);
-    var newStatus = newDebt === 0 ? 'Đã thanh toán' : 'Thanh toán một phần';
-    var pCol = bHdr.indexOf('amount_paid') + 1;
-    var dCol = bHdr.indexOf('debt') + 1;
-    var sCol = bHdr.indexOf('status') + 1;
-    // Nếu 3 cột liền nhau (amount_paid, debt, status thường adjacent) → 1 API call
-    var minC = Math.min(pCol, dCol, sCol);
-    var maxC = Math.max(pCol, dCol, sCol);
-    if (maxC - minC === 2) {
-      var rowVals = [];
-      for (var ci = minC; ci <= maxC; ci++) {
-        rowVals.push(ci === pCol ? newPaid : ci === dCol ? newDebt : newStatus);
-      }
-      billSheet.getRange(billRow, minC, 1, 3).setValues([rowVals]);
-    } else {
-      billSheet.getRange(billRow, pCol).setValue(newPaid);
-      billSheet.getRange(billRow, dCol).setValue(newDebt);
-      billSheet.getRange(billRow, sCol).setValue(newStatus);
-    }
+    billSheet.appendRow(billRow);
+    // Fallback: ép cell month về text format
+    var monthCellRow = billSheet.getLastRow();
+    billSheet.getRange(monthCellRow, 3).setNumberFormat('@').setValue(d.month);
   }
 
-  // 4. Write payment (student_id, class_id lưu thẳng để JOIN không phụ thuộc bill chain)
+  // 3. Write payment
   var pid = genId('payments', 'PAY');
   paySheet.appendRow([pid, bid, d.studentId, d.classId, new Date(), amt, d.method || '', d.staff || '', d.note || '']);
 
-  return { success: true, paymentId: pid };
+  return { success: true, paymentId: pid, billId: bid };
 }
 
 function updatePayment(d) {
