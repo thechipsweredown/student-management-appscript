@@ -350,9 +350,15 @@ tr:hover td { background: var(--gray-50); }
           <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><div style="position:relative;height:180px"><canvas id="classDonut"></canvas></div></div>
           <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div><div id="topClassList" class="top-class-list"></div></div>
         </div>
-        <div class="chart-card" style="margin-bottom:12px">
-          <div class="chart-title">📋 Điểm Danh 7 Ngày</div>
-          <div style="position:relative;height:180px"><canvas id="attChart"></canvas></div>
+        <div class="charts-grid" style="grid-template-columns:1.6fr 1fr;margin-bottom:12px">
+          <div class="chart-card">
+            <div class="chart-title">📋 Điểm Danh 7 Ngày</div>
+            <div style="position:relative;height:180px"><canvas id="attChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">🎂 Sinh nhật sắp tới <span id="bdayCount" style="font-size:11px;font-weight:400;color:var(--gray-400)"></span></div>
+            <div id="bdayList" style="overflow-y:auto;max-height:196px;font-size:13px"></div>
+          </div>
         </div>
       </div>
 
@@ -1021,6 +1027,49 @@ function renderDashboard() {
       '<div class="top-class-bar-wrap"><div class="top-class-bar" style="width:' + pct + '%;background:' + PALETTE[i % PALETTE.length] + '"></div></div>' +
       '<span style="width:80px;text-align:right;font-size:11px;font-weight:600">' + fmtMoney(classRevMap[c]) + '</span></div>';
   }).join('') || '<div style="color:var(--gray-400);font-size:13px;padding:8px 0">Không có dữ liệu</div>';
+
+  renderBirthdayPanel();
+}
+
+function renderBirthdayPanel() {
+  var today = new Date();
+  var todayMD = today.getMonth() * 100 + today.getDate();
+
+  var upcoming = [];
+  APP.students.forEach(function(s) {
+    if (!s.dob || !s.dob.includes('/')) return;
+    var parts = s.dob.split('/');
+    var d = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    if (!d || !m) return;
+
+    var bMD = (m - 1) * 100 + d;
+    var diff = bMD - todayMD;
+    if (diff < 0) diff += 1200; // wrap year: max ~1200 units
+    // convert to actual days (approximate enough for display)
+    var bDate = new Date(today.getFullYear(), m - 1, d);
+    if (bDate < today) bDate.setFullYear(bDate.getFullYear() + 1);
+    var days = Math.round((bDate - today) / 86400000);
+    if (days > 30) return;
+
+    upcoming.push({ s: s, days: days, bDate: bDate, d: d, m: m });
+  });
+  upcoming.sort(function(a, b) { return a.days - b.days; });
+
+  document.getElementById('bdayCount').textContent = upcoming.length ? '(' + upcoming.length + ' người)' : '';
+  document.getElementById('bdayList').innerHTML = upcoming.length
+    ? upcoming.map(function(item) {
+        var s = item.s;
+        var label = item.days === 0 ? '<span style="color:var(--danger);font-weight:700">Hôm nay 🎉</span>'
+                  : item.days === 1 ? '<span style="color:var(--warning);font-weight:600">Ngày mai</span>'
+                  : '<span style="color:var(--gray-600)">' + item.days + ' ngày nữa</span>';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--gray-100)">' +
+          avatarCircle(s, 28) +
+          '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s.name) + '</div>' +
+            '<div style="font-size:11px;color:var(--gray-400)">' + String(item.d).padStart(2,'0') + '/' + String(item.m).padStart(2,'0') + '</div></div>' +
+          label +
+        '</div>';
+      }).join('')
+    : '<div style="color:var(--gray-400);font-size:13px;padding:20px 0;text-align:center">Không có sinh nhật trong 30 ngày tới</div>';
 }
 
 function switchRevTab(tab) {
