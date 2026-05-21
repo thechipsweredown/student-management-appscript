@@ -360,10 +360,20 @@ tr:hover td { background: var(--gray-50); }
           <div id="classGroupGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px"></div>
         </div>
         <div id="classDetailView" style="display:none">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
             <button class="header-btn btn-outline" onclick="backToClassList()">← Quay lại</button>
             <span id="detailClassName" style="font-size:18px;font-weight:800"></span>
             <span id="detailClassInfo" style="font-size:13px;color:var(--gray-400)"></span>
+          </div>
+          <div style="display:flex;gap:12px;margin-bottom:16px">
+            <div style="background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:12px 20px;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--gray-400)">Đã thu</span>
+              <span id="detailClassPaid" style="font-size:18px;font-weight:800;color:var(--success)">—</span>
+            </div>
+            <div style="background:#fff;border:1px solid var(--gray-200);border-radius:10px;padding:12px 20px;display:flex;flex-direction:column;gap:2px">
+              <span style="font-size:11px;color:var(--gray-400)">Còn nợ</span>
+              <span id="detailClassDebt" style="font-size:18px;font-weight:800;color:var(--danger)">—</span>
+            </div>
           </div>
           <div class="table-card">
             <table><thead><tr>
@@ -914,6 +924,9 @@ function openClassDetail(className) {
   var cls = APP.classes.find(function(c) { return c.name === className; }) || {};
   document.getElementById('detailClassName').textContent = className;
   document.getElementById('detailClassInfo').textContent = students.length + ' học sinh · ' + esc(cls.teacher || '') + (cls.tuition ? ' · ' + fmtMoney(cls.tuition) + '/tháng' : '');
+  document.getElementById('detailClassPaid').textContent = cls.paid ? fmtMoney(cls.paid) : '0 đ';
+  document.getElementById('detailClassDebt').textContent = cls.debt ? fmtMoney(cls.debt) : '0 đ';
+  document.getElementById('detailClassDebt').style.color = cls.debt > 0 ? 'var(--danger)' : 'var(--gray-400)';
 
   var tbody = students.map(function(s) {
     var c = s.classes.find(function(c) { return c.className === className; }) || {};
