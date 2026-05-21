@@ -133,8 +133,8 @@ tr:hover td { background: var(--gray-50); }
   #printArea { display: block !important; }
 }
 /* Phiếu thu styles — dùng cả khi preview modal lẫn khi in */
-.pt-wrap { font-family: Arial, sans-serif; font-size: 13px; color: #000; max-width: 680px; margin: 0 auto; }
-.pt-box  { border: 1.5px solid #555; padding: 18px 22px 14px; margin-bottom: 0; }
+.pt-wrap { font-family: Arial, sans-serif; font-size: 13px; color: #000; max-width: 780px; margin: 0 auto; }
+.pt-box  { border: 1.5px solid #555; padding: 22px 30px 20px; margin-bottom: 0; }
 .pt-header { display: flex; align-items: flex-start; gap: 0; margin-bottom: 18px; }
 .pt-org   { flex: 1.2; font-size: 12px; line-height: 1.5; }
 .pt-org strong { font-size: 13px; }
@@ -155,7 +155,7 @@ tr:hover td { background: var(--gray-50); }
 .pt-sigs   { display: flex; justify-content: space-around; text-align: center; font-size: 13px; margin-bottom: 8px; }
 .pt-sigs > div { width: 160px; }
 .pt-sigs .pt-sig-space { height: 52px; }
-.pt-note  { border-top: 1.5px dashed #888; padding-top: 10px; margin-top: 4px; font-size: 12px; }
+.pt-note  { border-top: 1.5px dashed #aaa; padding-top: 10px; margin-top: 10px; font-size: 12px; }
 @media (max-width: 768px) {
   #sidebar { transform: translateX(-100%); transition: transform .25s; }
   #sidebar.open { transform: none; }
@@ -1959,9 +1959,8 @@ function printReceipt(pay, stu) {
           '<div><strong>Người nộp tiền</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
           '<div><strong>Người lập phiếu</strong><br><em>(Ký, họ tên)</em><div class="pt-sig-space"></div></div>' +
         '</div>' +
+        '<div class="pt-note">GHI CHÚ:..........................................................................................................................................................................................................................................</div>' +
       '</div>' +
-      // ── Note strip below box ──
-      '<div class="pt-note">GHI CHÚ:..........................................................................................................................................................................................................................................</div>' +
     '</div>';
 
   document.getElementById('printArea').innerHTML = html;
