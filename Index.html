@@ -942,9 +942,7 @@ function initUI() {
   document.getElementById('filterPayMonth').innerHTML = monthOpts;
   document.getElementById('db_filterMonth').innerHTML = monthOpts;
 
-  document.getElementById('studentDatalist').innerHTML = APP.students.map(function(s) {
-    return '<option value="' + esc(s.name) + '" data-id="' + esc(s.id) + '">';
-  }).join('');
+  // (studentDatalist đã thay bằng custom autocomplete trong modal Thanh toán)
 
   // Class dropdowns for schedule & stats
   var classOptsById = '<option value="">Tất cả lớp</option>' + APP.classes.map(function(c) {
