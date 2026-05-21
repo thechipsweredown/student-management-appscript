@@ -126,6 +126,8 @@ tr:hover td { background: var(--gray-50); }
 .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 .settings-panel { display: none; }
 .settings-panel.active { display: block; }
+/* Chart loading overlay */
+.chart-loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(249,250,251,.88); border-radius:8px; z-index:2; }
 /* Print */
 #printArea { display: none; }
 @media print {
@@ -342,13 +344,31 @@ tr:hover td { background: var(--gray-50); }
                 <button id="revTab_debt" onclick="switchRevTab('debt')" style="padding:3px 10px;border-radius:20px;border:1.5px solid var(--danger);font-size:11px;font-weight:700;cursor:pointer;background:#fff;color:var(--danger)">Nợ</button>
               </div>
             </div>
-            <div style="position:relative;height:160px"><canvas id="revenueChart"></canvas></div>
+            <div style="position:relative;height:160px">
+            <canvas id="revenueChart"></canvas>
+            <div class="chart-loading" id="loading-revenueChart"><div class="spinner" style="width:22px;height:22px;border-width:3px"></div></div>
           </div>
-          <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div><div style="position:relative;height:160px"><canvas id="classChart"></canvas></div></div>
+          </div>
+          <div class="chart-card"><div class="chart-title">📚 Số học sinh theo lớp</div>
+            <div style="position:relative;height:160px">
+              <canvas id="classChart"></canvas>
+              <div class="chart-loading" id="loading-classChart"><div class="spinner" style="width:22px;height:22px;border-width:3px"></div></div>
+            </div>
+          </div>
         </div>
         <div class="charts-grid" style="grid-template-columns:1fr 1fr">
-          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div><div style="position:relative;height:180px"><canvas id="classDonut"></canvas></div></div>
-          <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div><div id="topClassList" class="top-class-list"></div></div>
+          <div class="chart-card"><div class="chart-title">🍩 Phân bổ học sinh</div>
+            <div style="position:relative;height:180px">
+              <canvas id="classDonut"></canvas>
+              <div class="chart-loading" id="loading-classDonut"><div class="spinner" style="width:22px;height:22px;border-width:3px"></div></div>
+            </div>
+          </div>
+          <div class="chart-card"><div class="chart-title">🏆 Top lớp doanh thu</div>
+            <div style="position:relative;min-height:80px">
+              <div id="topClassList" class="top-class-list"></div>
+              <div class="chart-loading" id="loading-topClassList"><div class="spinner" style="width:22px;height:22px;border-width:3px"></div></div>
+            </div>
+          </div>
         </div>
         <div class="charts-grid" style="grid-template-columns:1.6fr 1fr;margin-bottom:12px">
           <div class="chart-card">
@@ -772,6 +792,7 @@ tr:hover td { background: var(--gray-50); }
 //  STATE
 // ═══════════════════════════════════════════════
 var APP = { students: [], payments: [], classes: [], classGroups: [], terms: [], teachers: [], parents: [], stats: null, currentUser: null, currentTermId: '' };
+var _dataPhase = 0; // 0=none, 1=quick, 2=full — ngăn quick data đè lên full data
 var REV_TAB = 'rev';
 var PAGE = { students: 1, payments: 1, pageSize: 30 };
 var CHARTS = {};
@@ -797,14 +818,35 @@ window.onload = function() {
       document.getElementById('sidebarUserRole').textContent = user.role === 'admin' ? '⚙️ Quản lý' : '👩‍🏫 Giáo viên';
       if (user.role === 'admin') document.getElementById('navSettings').style.display = 'flex';
 
+      // Phase 1: quick (7 sheets nhẹ) → hiện UI ngay
       google.script.run
         .withSuccessHandler(function(data) {
+          if (_dataPhase >= 2) return; // full data đã về trước, bỏ qua
+          _dataPhase = 1;
           applyData(data);
           document.getElementById('loading').style.display = 'none';
           populateTermPicker();
           initUI();
           renderDashboard();
           loadAttChart(data.att7days);
+        })
+        .withFailureHandler(function(e) { showError(e.message); })
+        .getQuickData(APP.currentTermId);
+
+      // Phase 2: full data (tất cả sheets) chạy song song, update âm thầm khi xong
+      google.script.run
+        .withSuccessHandler(function(data) {
+          _dataPhase = 2;
+          applyData(data);
+          document.getElementById('loading').style.display = 'none'; // safety nếu quick chưa về
+          populateTermPicker();
+          initUI();
+          var active = document.querySelector('.view.active');
+          var name = active ? active.id.replace('view-', '') : 'dashboard';
+          if (name === 'dashboard') { renderDashboard(); loadAttChart(data.att7days); }
+          else if (name === 'students') { PAGE.students = 1; renderStudentTable(); }
+          else if (name === 'payments') { PAGE.payments = 1; renderPaymentTable(); }
+          else if (name === 'classes')  renderClassGrid();
         })
         .withFailureHandler(function(e) { showError(e.message); })
         .getAllData(APP.currentTermId);
@@ -825,6 +867,7 @@ function applyData(data) {
   APP.teachers    = data.teachers    || APP.teachers || [];
   APP.terms       = data.terms       || [];
   APP.stats       = data.stats       || {};
+  APP._phase      = data._phase      || 'full';
   if (data.currentTermId && data.currentTermId !== APP.currentTermId) {
     APP.currentTermId = data.currentTermId;
   }
@@ -970,11 +1013,27 @@ function renderDashboard() {
   var active    = students.filter(function(s) { return s.status === 'Đang học'; }).length;
 
   var s = APP.stats || {};
-  document.getElementById('st-total').textContent    = fmt(students.length);
+  document.getElementById('st-total').textContent      = fmt(students.length);
   document.getElementById('st-active-sub').textContent = fmt(active) + ' đang học';
-  document.getElementById('st-classes').textContent  = fmt(s.activeClasses  || 0);
-  document.getElementById('st-teachers').textContent = fmt(s.teacherCount   || 0);
-  document.getElementById('st-active').textContent   = fmt(active);
+  document.getElementById('st-classes').textContent    = fmt(s.activeClasses  || 0);
+  document.getElementById('st-teachers').textContent   = fmt(s.teacherCount   || 0);
+  document.getElementById('st-active').textContent     = fmt(active);
+
+  var isQuick = APP._phase === 'quick';
+  var OVERLAY_IDS = ['loading-revenueChart','loading-classChart','loading-classDonut','loading-topClassList'];
+  OVERLAY_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = isQuick ? 'flex' : 'none';
+  });
+
+  if (isQuick) {
+    document.getElementById('st-rev').textContent     = '—';
+    document.getElementById('st-rev-sub').textContent = 'Đang tải…';
+    document.getElementById('st-debt').textContent    = '—';
+    renderBirthdayPanel();
+    return;
+  }
+
   document.getElementById('st-rev').textContent      = fmtMoney(totalRev);
   document.getElementById('st-rev-sub').textContent  = fmt(payments.length) + ' giao dịch';
   document.getElementById('st-debt').textContent     = fmtMoney(totalDebt);
@@ -1155,9 +1214,11 @@ function renderStudentTable() {
     var classBadges = s.classes.map(function(c) {
       return '<span class="badge badge-blue" style="margin-right:2px;cursor:pointer" onclick=\'showView("classes");setTimeout(function(){openClassDetail("' + esc(c.className) + '")},80)\'>' + esc(c.className) + '</span>';
     }).join('') || '<span style="color:var(--gray-400);font-size:12px">—</span>';
-    var debtCell = s.totalDebt > 0
-      ? '<span style="color:var(--danger);font-weight:700">' + fmtMoney(s.totalDebt) + '</span>'
-      : '<span style="color:var(--gray-400);font-size:12px">—</span>';
+    var debtCell = APP._phase === 'quick'
+      ? '<span style="color:var(--gray-400);font-size:12px">…</span>'
+      : s.totalDebt > 0
+        ? '<span style="color:var(--danger);font-weight:700">' + fmtMoney(s.totalDebt) + '</span>'
+        : '<span style="color:var(--gray-400);font-size:12px">—</span>';
     return '<tr>' +
       '<td><span style="font-family:monospace;color:var(--primary);font-size:12px">' + esc(s.id) + '</span></td>' +
       '<td><div style="display:flex;align-items:center;gap:8px">' + avatarCircle(s, 30) + '<strong>' + esc(s.name) + '</strong></div></td>' +

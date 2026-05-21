@@ -72,6 +72,27 @@ function parseFromValues(rows) {
   return result;
 }
 
+// Tính điểm danh 7 ngày gần nhất từ raw parsed data
+function _computeAtt7days(rawSessions, rawAtt) {
+  var isoDate = function(v) {
+    if (v instanceof Date) return Utilities.formatDate(v, TIMEZONE, 'yyyy-MM-dd');
+    if (typeof v === 'number' && v > 1000) return Utilities.formatDate(new Date(Math.round((v - 25569) * 86400000)), TIMEZONE, 'yyyy-MM-dd');
+    return String(v).substring(0, 10);
+  };
+  var today = new Date(), days = [];
+  for (var i = 6; i >= 0; i--) { var d = new Date(today.getTime()); d.setDate(d.getDate() - i); days.push(Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd')); }
+  var sesDate = {};
+  (rawSessions || []).forEach(function(s) { var iso = isoDate(s.date); if (days.indexOf(iso) !== -1) sesDate[String(s.id || '')] = iso; });
+  var cnt = {};
+  days.forEach(function(dy) { cnt[dy] = { present: 0, absent: 0, late: 0 }; });
+  (rawAtt || []).forEach(function(a) {
+    var date = sesDate[String(a.session_id || '')]; if (!date) return;
+    var st = String(a.status || '');
+    if (st === 'Có mặt') cnt[date].present++; else if (st === 'Vắng') cnt[date].absent++; else if (st === 'Đi muộn') cnt[date].late++;
+  });
+  return days.map(function(dy) { return { date: dy.substring(5), present: cnt[dy].present, absent: cnt[dy].absent, late: cnt[dy].late }; });
+}
+
 // Parse sheet thành array of objects, dùng row 1 làm header
 function parseSheet(name) {
   var sheet = getSheet(name);
@@ -374,38 +395,7 @@ function getAllData(termId) {
   mark('done');
   T.done = Date.now();
 
-  // Tính att7days inline từ data đã đọc → tránh round-trip thứ 3 từ client
-  var isoDate = function(v) {
-    if (v instanceof Date) return Utilities.formatDate(v, TIMEZONE, 'yyyy-MM-dd');
-    if (typeof v === 'number' && v > 1000) return Utilities.formatDate(new Date(Math.round((v - 25569) * 86400000)), TIMEZONE, 'yyyy-MM-dd');
-    return String(v).substring(0, 10);
-  };
-  var rawSessions = parseFromValues(raw['sessions'] || []);
-  var rawAtt      = parseFromValues(raw['attendance'] || []);
-  var today7 = new Date();
-  var days7 = [];
-  for (var d7i = 6; d7i >= 0; d7i--) {
-    var d7tmp = new Date(today7.getTime()); d7tmp.setDate(d7tmp.getDate() - d7i);
-    days7.push(Utilities.formatDate(d7tmp, TIMEZONE, 'yyyy-MM-dd'));
-  }
-  var sesDate7 = {};
-  rawSessions.forEach(function(s) {
-    var iso7 = isoDate(s.date);
-    if (days7.indexOf(iso7) !== -1) sesDate7[String(s.id || '')] = iso7;
-  });
-  var cnt7 = {};
-  days7.forEach(function(dy) { cnt7[dy] = { present: 0, absent: 0, late: 0 }; });
-  rawAtt.forEach(function(a) {
-    var date7 = sesDate7[String(a.session_id || '')];
-    if (!date7) return;
-    var st7 = String(a.status || '');
-    if (st7 === 'Có mặt')        cnt7[date7].present++;
-    else if (st7 === 'Vắng')     cnt7[date7].absent++;
-    else if (st7 === 'Đi muộn')  cnt7[date7].late++;
-  });
-  var att7days = days7.map(function(dy) {
-    return { date: dy.substring(5), present: cnt7[dy].present, absent: cnt7[dy].absent, late: cnt7[dy].late };
-  });
+  var att7days = _computeAtt7days(parseFromValues(raw['sessions'] || []), parseFromValues(raw['attendance'] || []));
 
   var teacherList = rawTeachers.map(function(t) {
     return { id: String(t.id||''), name: String(t.name||''), status: String(t.status||'') };
@@ -435,6 +425,101 @@ function getAllData(termId) {
     att7days     : att7days,
     currentTermId: resolvedTermId,
     _timing: { total: T.done - T.start, read: T.read - T.start, compute: T.done - T.read, steps: T.steps }
+  };
+}
+
+// ── getQuickData: chỉ đọc 7 sheets nhẹ, trả về ngay để hiện UI ──
+// Không có enrollments/monthly_bills/payments → debt=0, revenue=0
+// getAllData chạy song song ở background để cập nhật đầy đủ sau
+function getQuickData(termId) {
+  var T = { start: Date.now(), steps: [] };
+  function mark(label) { T.steps.push({ label: label, ms: Date.now() - T.start }); }
+
+  var raw = batchReadSheets(['students', 'classes', 'teachers', 'DS Lớp', 'terms', 'sessions', 'attendance']);
+  mark('batchRead');
+
+  var rawStudents = parseFromValues(raw['students']);
+  var rawClasses  = parseFromValues(raw['classes']);
+  var rawTeachers = parseFromValues(raw['teachers']);
+  var rawTermsArr = parseFromValues(raw['terms']);
+  var rawLop      = raw['DS Lớp'] || [];
+  mark('parse');
+
+  // Resolve current term (cùng logic với getAllData)
+  var resolvedTermId = termId || '';
+  if (!resolvedTermId && rawTermsArr.length) {
+    var todaySerial = new Date().getTime() / 86400000 + 25569;
+    var latestPastId = '', latestPastEnd = 0;
+    rawTermsArr.forEach(function(t) {
+      var s = typeof t.start_date === 'number' ? t.start_date : 0;
+      var e = typeof t.end_date   === 'number' ? t.end_date   : 0;
+      if (s && e && todaySerial >= s && todaySerial <= e) resolvedTermId = String(t.id || '');
+      else if (e && e < todaySerial && e > latestPastEnd) { latestPastEnd = e; latestPastId = String(t.id || ''); }
+    });
+    if (!resolvedTermId && latestPastId) resolvedTermId = latestPastId;
+  }
+
+  var teacherMap = {};
+  rawTeachers.forEach(function(t) { if (t.id) teacherMap[String(t.id)] = t; });
+
+  var students = rawStudents.filter(function(s) {
+    return s.id && String(s.id).match(/^HS\d+/i);
+  }).map(function(s) {
+    return {
+      rowIndex: s._row, id: String(s.id), name: String(s.name || ''), dob: fmtDate(s.dob),
+      gender: String(s.gender || ''), photoUrl: String(s.photo_url || ''),
+      status: String(s.status || 'Đang học'), address: String(s.address || ''),
+      classes: [], primaryClass: '', primaryTeacher: '', totalDebt: 0
+    };
+  });
+
+  var classes = rawClasses.map(function(c) {
+    var teacher = teacherMap[String(c.teacher_id || '')] || {};
+    return {
+      id: String(c.id || ''), name: String(c.name || ''), teacherId: String(c.teacher_id || ''),
+      teacher: String(teacher.name || ''), tuition: parseFloat(c.tuition_per_month) || 0,
+      subject: String(c.subject || ''), status: String(c.status || ''),
+      count: 0, paid: 0, debt: 0
+    };
+  });
+
+  var classGroups = [];
+  if (rawLop.length >= 2) {
+    for (var col = 0; col < Math.min(rawLop[0].length, 2); col++) {
+      var header = String(rawLop[0][col] || '').trim();
+      if (!header) continue;
+      var grpCls = [];
+      for (var row = 1; row < rawLop.length; row++) {
+        var v = rawLop[row][col];
+        if (!v || v instanceof Date) continue;
+        var sv = String(v).trim(); if (sv) grpCls.push(sv);
+      }
+      if (grpCls.length) classGroups.push({ name: header, classes: grpCls });
+    }
+  }
+
+  var att7days = _computeAtt7days(parseFromValues(raw['sessions'] || []), parseFromValues(raw['attendance'] || []));
+  mark('compute');
+
+  var activeStudents = students.filter(function(s) { return s.status === 'Đang học'; }).length;
+  var activeClasses  = classes.filter(function(c) { return c.status === 'Đang hoạt động'; }).length;
+  var teacherCount   = rawTeachers.filter(function(t) { return String(t.status || '') === 'Đang dạy'; }).length;
+
+  T.done = Date.now();
+  return {
+    students: students, payments: [], classes: classes, classGroups: classGroups,
+    teachers: rawTeachers.map(function(t) { return { id: String(t.id||''), name: String(t.name||''), status: String(t.status||'') }; }),
+    terms: rawTermsArr.map(function(t) { return { id: String(t.id||''), school_year: String(t.school_year||''), term_name: String(t.term_name||''), start_date: fmtDate(t.start_date), end_date: fmtDate(t.end_date) }; }),
+    att7days: att7days,
+    stats: {
+      totalStudents: students.length, activeStudents: activeStudents,
+      activeClasses: activeClasses,  teacherCount: teacherCount,
+      totalRevenue: 0, totalDebt: 0, totalPayments: 0,
+      monthlyRevenue: [], monthlyDebt: [], classRevenue: {}
+    },
+    currentTermId: resolvedTermId,
+    _phase: 'quick',
+    _timing: { total: T.done - T.start, steps: T.steps }
   };
 }
 
@@ -960,40 +1045,8 @@ function getSessions(classId) {
 }
 
 function getAttendanceLast7Days() {
-  var today    = new Date();
-  var rawMap   = batchReadSheets(['sessions', 'attendance']);
-  var sessions = parseFromValues(rawMap['sessions']);
-  var attRows  = parseFromValues(rawMap['attendance']);
-
-  var days = [];
-  for (var i = 6; i >= 0; i--) {
-    var d = new Date(today.getTime());
-    d.setDate(d.getDate() - i);
-    days.push(Utilities.formatDate(d, TIMEZONE, 'yyyy-MM-dd'));
-  }
-
-  var sessionDate = {};
-  sessions.forEach(function(s) {
-    var raw = s.date;
-    var iso = raw instanceof Date ? Utilities.formatDate(raw, TIMEZONE, 'yyyy-MM-dd') : String(raw).substring(0, 10);
-    if (days.indexOf(iso) !== -1) sessionDate[String(s.id || '')] = iso;
-  });
-
-  var counts = {};
-  days.forEach(function(d) { counts[d] = { present: 0, absent: 0, late: 0 }; });
-
-  attRows.forEach(function(a) {
-    var date = sessionDate[String(a.session_id || '')];
-    if (!date) return;
-    var st = String(a.status || '');
-    if (st === 'Có mặt')   counts[date].present++;
-    else if (st === 'Vắng')    counts[date].absent++;
-    else if (st === 'Đi muộn') counts[date].late++;
-  });
-
-  return days.map(function(d) {
-    return { date: d.substring(5), present: counts[d].present, absent: counts[d].absent, late: counts[d].late };
-  });
+  var rawMap = batchReadSheets(['sessions', 'attendance']);
+  return _computeAtt7days(parseFromValues(rawMap['sessions']), parseFromValues(rawMap['attendance']));
 }
 
 // Chỉ đọc, không tạo mới — dùng khi load form điểm danh
