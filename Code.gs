@@ -260,13 +260,12 @@ function getAllData(termId) {
       var cls     = classMap[String(e.class_id || '')] || {};
       var teacher = teacherMap[String(cls.teacher_id || '')] || {};
       var enrollTuition = parseFloat(e.tuition) || 0;
+      // Học phí cả KỲ — default từ class.tuition_per_month (đại diện cho cả kỳ), override bằng enrollment.tuition
       var effectiveTuition = enrollTuition || (parseFloat(cls.tuition_per_month) || 0);
-      var bills     = (billByEnroll[String(e.id || '')] || []).filter(function(b) {
-        return !b.month || String(b.month) <= currentMonth;
-      });
-      var billDue   = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_due)  || 0); }, 0);
-      var paid      = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
-      var debt      = billDue > 0 ? Math.max(0, billDue - paid) : 0;
+      // Tổng đã đóng cho enrollment này (ledger-style: 1 payment = 1 bill)
+      var bills = billByEnroll[String(e.id || '')] || [];
+      var paid  = bills.reduce(function(a, b) { return a + (parseFloat(b.amount_paid) || 0); }, 0);
+      var debt  = Math.max(0, effectiveTuition - paid);
       return {
         enrollId    : String(e.id || ''),
         classId     : String(e.class_id || ''),
@@ -274,7 +273,7 @@ function getAllData(termId) {
         teacherName : String(teacher.name || ''),
         tuition     : effectiveTuition,
         enrollStatus: String(e.status || ''),
-        billDue     : billDue,
+        billDue     : effectiveTuition,
         billPaid    : paid,
         billDebt    : debt
       };
@@ -329,7 +328,10 @@ function getAllData(termId) {
   mark('compute:payments(' + payments.length + ')');
 
   // ── Classes list ──────────────────────────────────────────
-  // Build per-class aggregates in single O(n) pass over enrollments
+  // Build per-class aggregates: debt = max(0, term_tuition - paid) per enrollment
+  var classTuitionMap = {};
+  rawClasses.forEach(function(c) { classTuitionMap[String(c.id||'')] = parseFloat(c.tuition_per_month) || 0; });
+
   var paidByClass  = {};
   var debtByClass  = {};
   var countByClass = {};
@@ -337,13 +339,12 @@ function getAllData(termId) {
     var cid = String(e.class_id || '');
     if (!cid) return;
     if (String(e.status) === 'Đang học') countByClass[cid] = (countByClass[cid] || 0) + 1;
-    var bills = (billByEnroll[String(e.id || '')] || []).filter(function(b) {
-      return !b.month || String(b.month) <= currentMonth;
-    });
-    bills.forEach(function(b) {
-      paidByClass[cid] = (paidByClass[cid] || 0) + (parseFloat(b.amount_paid) || 0);
-      debtByClass[cid] = (debtByClass[cid] || 0) + (parseFloat(b.debt)        || 0);
-    });
+    var enrollTui = parseFloat(e.tuition) || 0;
+    var tui = enrollTui || classTuitionMap[cid] || 0;
+    var bills = billByEnroll[String(e.id || '')] || [];
+    var paid  = bills.reduce(function(a,b){ return a + (parseFloat(b.amount_paid) || 0); }, 0);
+    paidByClass[cid] = (paidByClass[cid] || 0) + paid;
+    debtByClass[cid] = (debtByClass[cid] || 0) + Math.max(0, tui - paid);
   });
 
   var classes = rawClasses.map(function(c) {
@@ -397,18 +398,9 @@ function getAllData(termId) {
     return { month: m, amount: monthlyMap[m] };
   });
 
-  var debtMonthMap = {};
-  rawEnroll.forEach(function(e) {
-    var bills = (billByEnroll[String(e.id || '')] || []).filter(function(b) {
-      return !b.month || String(b.month) <= currentMonth;
-    });
-    bills.forEach(function(b) {
-      if (b.month) debtMonthMap[String(b.month)] = (debtMonthMap[String(b.month)] || 0) + (parseFloat(b.debt) || 0);
-    });
-  });
-  var monthlyDebt = Object.keys(debtMonthMap).sort().map(function(m) {
-    return { month: m, amount: debtMonthMap[m] };
-  });
+  // Mô hình mới: học phí cả kỳ, không có debt theo tháng nữa.
+  // Hiển thị tổng nợ hiện tại như 1 cột ở tháng hiện tại để chart không trống.
+  var monthlyDebt = totalDebt > 0 ? [{ month: currentMonth, amount: totalDebt }] : [];
 
   var classRevMap = {};
   payments.forEach(function(p) {
