@@ -1192,7 +1192,13 @@ function getAttendanceStats(classId, termId) {
 // Sheet columns: id, name, phone, email, subject_ids, status
 function getTeachers() {
   return parseSheet('teachers').map(function(t) {
-    return { id: String(t.id||''), name: String(t.name||''), phone: String(t.phone||''), email: String(t.email||''), subject: String(t.subject_ids||''), status: String(t.status||'') };
+    return {
+      id: String(t.id||''), name: String(t.name||''), phone: String(t.phone||''),
+      email: String(t.email||''), subject: String(t.subject_ids||''), status: String(t.status||''),
+      salary_type    : String(t.salary_type||'hourly'),
+      hourly_rate    : parseFloat(t.hourly_rate)||0,
+      revenue_percent: parseFloat(t.revenue_percent)||0
+    };
   });
 }
 
@@ -1223,6 +1229,166 @@ function deleteTeacher(id) {
     if (String(data[i][idCol]) === String(id)) { sheet.deleteRow(i+1); return { success: true }; }
   }
   return { success: false };
+}
+
+// ── Timesheet (chấm công GV) ──────────────────────────────────
+function _ensureTimesheetSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('teacher_timesheets');
+  if (!sheet) {
+    sheet = ss.insertSheet('teacher_timesheets');
+    sheet.appendRow(['id','teacher_id','class_id','date','start_time','end_time','hours','note','created_at']);
+    sheet.getRange('A1:I1').setFontWeight('bold').setBackground('#f3f4f6');
+  }
+  return sheet;
+}
+
+function _ensureTeacherSalaryCols() {
+  var sheet = getSheet('teachers');
+  var hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h){ return String(h).trim(); });
+  var need = ['salary_type','hourly_rate','revenue_percent'].filter(function(c){ return hdr.indexOf(c) === -1; });
+  if (need.length) {
+    var startCol = sheet.getLastColumn() + 1;
+    sheet.getRange(1, startCol, 1, need.length).setValues([need]).setFontWeight('bold').setBackground('#f3f4f6');
+  }
+}
+
+function _parseTimeHours(start, end) {
+  // start/end: 'HH:mm' string. Trả về giờ (float)
+  if (!start || !end) return 0;
+  var ps = String(start).split(':'), pe = String(end).split(':');
+  var sm = parseInt(ps[0],10)*60 + parseInt(ps[1]||'0',10);
+  var em = parseInt(pe[0],10)*60 + parseInt(pe[1]||'0',10);
+  if (isNaN(sm) || isNaN(em) || em <= sm) return 0;
+  return Math.round((em - sm) / 60 * 100) / 100;
+}
+
+function addTimesheet(d) {
+  // d: {teacherId, classId, date, startTime, endTime, note}
+  var sheet = _ensureTimesheetSheet();
+  var id = genId('teacher_timesheets', 'TS');
+  var hours = _parseTimeHours(d.startTime, d.endTime);
+  var row = [id, d.teacherId||'', d.classId||'', d.date||'', d.startTime||'', d.endTime||'', hours, d.note||'', new Date()];
+
+  // Dùng RAW để date/time string không bị auto-convert
+  var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+  if (typeof Sheets !== 'undefined') {
+    Sheets.Spreadsheets.Values.append(
+      { values: [row] }, ssId, 'teacher_timesheets',
+      { valueInputOption: 'RAW' }
+    );
+  } else {
+    sheet.appendRow(row);
+  }
+  return { success: true, id: id, hours: hours };
+}
+
+function deleteTimesheet(id) {
+  var sheet = _ensureTimesheetSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) { sheet.deleteRow(i+1); return { success: true }; }
+  }
+  return { success: false };
+}
+
+function listTimesheets(month, teacherId) {
+  // month: 'YYYY-MM' (optional). teacherId: optional.
+  _ensureTimesheetSheet();
+  var rows = parseSheet('teacher_timesheets');
+  var teachers = parseSheet('teachers');
+  var classes  = parseSheet('classes');
+  var tMap = {}; teachers.forEach(function(t){ if (t.id) tMap[String(t.id)] = String(t.name||''); });
+  var cMap = {}; classes.forEach(function(c){ if (c.id) cMap[String(c.id)] = String(c.name||''); });
+
+  return rows.filter(function(r) {
+    var dateStr = r.date instanceof Date
+      ? Utilities.formatDate(r.date, TIMEZONE, 'yyyy-MM-dd')
+      : String(r.date||'').substring(0,10);
+    if (month && dateStr.substring(0,7) !== String(month)) return false;
+    if (teacherId && String(r.teacher_id||'') !== String(teacherId)) return false;
+    r._dateStr = dateStr;
+    return true;
+  }).map(function(r) {
+    return {
+      id        : String(r.id||''),
+      teacherId : String(r.teacher_id||''),
+      teacherName: tMap[String(r.teacher_id||'')] || '',
+      classId   : String(r.class_id||''),
+      className : cMap[String(r.class_id||'')] || '',
+      date      : r._dateStr,
+      startTime : String(r.start_time||''),
+      endTime   : String(r.end_time||''),
+      hours     : parseFloat(r.hours) || 0,
+      note      : String(r.note||'')
+    };
+  }).sort(function(a,b){ return b.date.localeCompare(a.date); });
+}
+
+function saveTeacherSalary(d) {
+  // d: {id, salary_type, hourly_rate, revenue_percent}
+  _ensureTeacherSalaryCols();
+  var sheet = getSheet('teachers');
+  var data  = sheet.getDataRange().getValues();
+  var hdr   = data[0].map(function(h){ return String(h).trim(); });
+  var idCol = hdr.indexOf('id');
+  var stCol = hdr.indexOf('salary_type') + 1;
+  var hrCol = hdr.indexOf('hourly_rate') + 1;
+  var rpCol = hdr.indexOf('revenue_percent') + 1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]) === String(d.id)) {
+      sheet.getRange(i+1, stCol).setValue(d.salary_type||'hourly');
+      sheet.getRange(i+1, hrCol).setValue(parseFloat(d.hourly_rate)||0);
+      sheet.getRange(i+1, rpCol).setValue(parseFloat(d.revenue_percent)||0);
+      return { success: true };
+    }
+  }
+  return { success: false };
+}
+
+function getTeacherStats(month) {
+  // Trả về { teacherId: { hours, classRevenue, salaryHourly, salaryPercent } }
+  _ensureTimesheetSheet();
+  _ensureTeacherSalaryCols();
+  var rows = listTimesheets(month, '');
+  var teachers = parseSheet('teachers');
+  var classes  = parseSheet('classes');
+  var pays = parseSheet('payments');
+
+  var teacherClasses = {};
+  classes.forEach(function(c) {
+    var tid = String(c.teacher_id||'');
+    if (!teacherClasses[tid]) teacherClasses[tid] = [];
+    teacherClasses[tid].push(String(c.id||''));
+  });
+
+  // Doanh thu lớp trong tháng (dựa vào payments)
+  var clsRev = {};
+  pays.forEach(function(p) {
+    var pDate = p.date instanceof Date ? Utilities.formatDate(p.date, TIMEZONE, 'yyyy-MM-dd') : String(p.date||'').substring(0,10);
+    if (month && pDate.substring(0,7) !== String(month)) return;
+    var cid = String(p.class_id||'');
+    clsRev[cid] = (clsRev[cid]||0) + (parseFloat(p.amount)||0);
+  });
+
+  var stats = {};
+  teachers.forEach(function(t) {
+    var tid = String(t.id||'');
+    var rev = (teacherClasses[tid]||[]).reduce(function(a,cid){ return a + (clsRev[cid]||0); }, 0);
+    var hours = rows.filter(function(r){ return r.teacherId === tid; }).reduce(function(a,r){ return a + r.hours; }, 0);
+    var hr = parseFloat(t.hourly_rate)||0;
+    var rp = parseFloat(t.revenue_percent)||0;
+    stats[tid] = {
+      hours: Math.round(hours*100)/100,
+      revenue: rev,
+      salaryHourly: Math.round(hours * hr),
+      salaryPercent: Math.round(rev * rp / 100),
+      salaryType: String(t.salary_type||'hourly'),
+      hourlyRate: hr,
+      revenuePercent: rp
+    };
+  });
+  return stats;
 }
 
 // ── Parents ───────────────────────────────────────────────────

@@ -506,15 +506,55 @@ tr:hover td { background: var(--gray-50); }
 
       <!-- Attendance -->
       <div id="view-attendance" class="view">
-        <div class="table-card" style="margin-bottom:14px">
-          <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
-            <select class="filter-select" id="att_classId" style="min-width:160px"><option value="">-- Chọn lớp --</option></select>
-            <input type="date" class="filter-select" id="att_date">
-            <button class="header-btn btn-primary" onclick="loadAttendanceSheet()">Tải danh sách</button>
-            <span id="att_note" style="font-size:12px;color:var(--gray-400)"></span>
+        <div class="settings-tabs" style="margin-bottom:14px">
+          <div class="settings-tab active" id="attTab_students" onclick="switchAttTab('students')">🧑‍🎓 Điểm danh học sinh</div>
+          <div class="settings-tab"        id="attTab_teachers" onclick="switchAttTab('teachers')">⏱️ Chấm công giáo viên</div>
+        </div>
+
+        <div id="attPanel_students" class="settings-panel active">
+          <div class="table-card" style="margin-bottom:14px">
+            <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
+              <select class="filter-select" id="att_classId" style="min-width:160px"><option value="">-- Chọn lớp --</option></select>
+              <input type="date" class="filter-select" id="att_date">
+              <button class="header-btn btn-primary" onclick="loadAttendanceSheet()">Tải danh sách</button>
+              <span id="att_note" style="font-size:12px;color:var(--gray-400)"></span>
+            </div>
+          </div>
+          <div id="att_body"></div>
+        </div>
+
+        <div id="attPanel_teachers" class="settings-panel">
+          <div class="table-card" style="margin-bottom:14px">
+            <div class="table-toolbar" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+              <div><label style="font-size:11px;color:var(--gray-400);display:block;margin-bottom:2px">Giáo viên *</label>
+                <select class="filter-select" id="ts_teacherId" style="min-width:140px"><option value="">--</option></select></div>
+              <div><label style="font-size:11px;color:var(--gray-400);display:block;margin-bottom:2px">Lớp *</label>
+                <select class="filter-select" id="ts_classId" style="min-width:140px"><option value="">--</option></select></div>
+              <div><label style="font-size:11px;color:var(--gray-400);display:block;margin-bottom:2px">Ngày *</label>
+                <input type="date" class="filter-select" id="ts_date"></div>
+              <div><label style="font-size:11px;color:var(--gray-400);display:block;margin-bottom:2px">Từ</label>
+                <input type="time" class="filter-select" id="ts_start" style="width:110px"></div>
+              <div><label style="font-size:11px;color:var(--gray-400);display:block;margin-bottom:2px">Đến</label>
+                <input type="time" class="filter-select" id="ts_end" style="width:110px"></div>
+              <div style="flex:1;min-width:120px"><label style="font-size:11px;color:var(--gray-400);display:block;margin-bottom:2px">Ghi chú</label>
+                <input class="filter-select" id="ts_note" placeholder="(tuỳ chọn)" style="width:100%"></div>
+              <button class="header-btn btn-primary" onclick="submitTimesheet()">➕ Thêm</button>
+            </div>
+          </div>
+          <div class="table-card">
+            <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600">Bảng chấm công</span>
+              <input type="month" class="filter-select" id="ts_filterMonth" onchange="loadTimesheets()">
+              <select class="filter-select" id="ts_filterTeacher" onchange="loadTimesheets()" style="min-width:140px"><option value="">Tất cả GV</option></select>
+              <span id="ts_summary" style="font-size:12px;color:var(--primary);font-weight:700;margin-left:auto"></span>
+            </div>
+            <div style="overflow-x:auto">
+              <table><thead><tr>
+                <th>Ngày</th><th>Giáo viên</th><th>Lớp</th><th>Từ</th><th>Đến</th><th>Số giờ</th><th>Ghi chú</th><th></th>
+              </tr></thead><tbody id="tsTbody"></tbody></table>
+            </div>
           </div>
         </div>
-        <div id="att_body"></div>
       </div>
 
       <!-- Schedule -->
@@ -553,7 +593,12 @@ tr:hover td { background: var(--gray-50); }
             <button class="header-btn btn-primary" onclick="openAddTeacher()" style="margin-left:auto">➕ Thêm giáo viên</button>
           </div>
           <div style="overflow-x:auto">
-            <table><thead><tr><th>Mã GV</th><th>Họ và tên</th><th>Môn</th><th>Điện thoại</th><th>Email</th><th></th></tr></thead>
+            <table><thead><tr>
+              <th>Mã GV</th><th>Họ và tên</th><th>Môn</th><th>Điện thoại</th>
+              <th style="text-align:right">Giờ tháng này</th>
+              <th style="text-align:right">Lương dự kiến</th>
+              <th>Cách tính</th><th></th>
+            </tr></thead>
             <tbody id="teacherTbody"></tbody></table>
           </div>
         </div>
@@ -722,6 +767,21 @@ tr:hover td { background: var(--gray-50); }
         <div class="form-group"><label>Môn giảng dạy</label><input class="form-control" id="tch_subject"></div>
         <div class="form-group"><label>Trạng thái</label>
           <select class="form-control" id="tch_status"><option value="Đang dạy">Đang dạy</option><option value="Nghỉ">Nghỉ</option></select>
+        </div>
+        <div class="form-group span2" style="border-top:1px solid var(--gray-200);padding-top:10px;margin-top:4px">
+          <label style="font-size:11px;font-weight:700;color:var(--gray-600);text-transform:uppercase">💰 Cấu hình lương</label>
+        </div>
+        <div class="form-group"><label>Cách tính lương</label>
+          <select class="form-control" id="tch_salaryType" onchange="updateTeacherSalaryFields()">
+            <option value="hourly">Theo giờ × đơn giá</option>
+            <option value="percent">Theo % doanh thu lớp</option>
+          </select>
+        </div>
+        <div class="form-group" id="tch_hourlyRow"><label>Đơn giá / giờ (đ)</label>
+          <input class="form-control" id="tch_hourlyRate" type="number" min="0" step="10000" placeholder="VD: 150000">
+        </div>
+        <div class="form-group" id="tch_percentRow" style="display:none"><label>% doanh thu</label>
+          <input class="form-control" id="tch_revenuePercent" type="number" min="0" max="100" step="0.5" placeholder="VD: 30">
         </div>
       </div>
     </div>
@@ -1864,41 +1924,71 @@ function confirmDeleteTerm(id, label) {
 //  TEACHERS
 // ═══════════════════════════════════════════════
 function loadTeachers() {
+  var today = new Date();
+  var month = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
   google.script.run
     .withSuccessHandler(function(list) {
       APP.teachers = list || [];
-      var tbody = list.map(function(t) {
-        return '<tr>' +
-          '<td style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(t.id) + '</td>' +
-          '<td><strong>' + esc(t.name) + '</strong></td>' +
-          '<td style="font-size:12px;color:var(--gray-600)">' + esc(t.subject||'—') + '</td>' +
-          '<td style="font-size:12px">' + esc(t.phone||'—') + '</td>' +
-          '<td style="font-size:12px">' + esc(t.email||'—') + '</td>' +
-          '<td style="text-align:right;white-space:nowrap">' +
-            '<button class="header-btn btn-sm btn-outline" onclick=\'openEditTeacher(' + JSON.stringify(t) + ')\'>Sửa</button> ' +
-            '<button class="header-btn btn-sm" style="background:var(--danger);color:#fff" onclick="deleteTeacher(\'' + esc(t.id) + '\')">Xoá</button>' +
-          '</td></tr>';
-      }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Chưa có giáo viên nào</td></tr>';
-      document.getElementById('teacherTbody').innerHTML = tbody;
+      google.script.run
+        .withSuccessHandler(function(stats) { renderTeachersTable(list, stats || {}, month); })
+        .withFailureHandler(function(e) { renderTeachersTable(list, {}, month); })
+        .getTeacherStats(month);
     })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .getTeachers();
 }
 
+function renderTeachersTable(list, stats, month) {
+  var tbody = list.map(function(t) {
+    var st = stats[t.id] || { hours: 0, salaryHourly: 0, salaryPercent: 0, salaryType: t.salary_type||'hourly' };
+    var salary = st.salaryType === 'percent' ? st.salaryPercent : st.salaryHourly;
+    var typeLabel = st.salaryType === 'percent'
+      ? '<span class="badge badge-blue">' + (t.revenue_percent||0) + '% DT</span>'
+      : '<span class="badge badge-gray">' + fmtMoney(t.hourly_rate||0) + '/h</span>';
+    return '<tr>' +
+      '<td style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(t.id) + '</td>' +
+      '<td><strong>' + esc(t.name) + '</strong>' + (t.status === 'Nghỉ' ? ' <span class="badge badge-gray">Nghỉ</span>' : '') + '</td>' +
+      '<td style="font-size:12px;color:var(--gray-600)">' + esc(t.subject||'—') + '</td>' +
+      '<td style="font-size:12px">' + esc(t.phone||'—') + '</td>' +
+      '<td style="text-align:right;font-weight:700;color:var(--primary)">' + (st.hours || 0) + 'h</td>' +
+      '<td style="text-align:right;font-weight:700;color:var(--success)">' + (salary > 0 ? fmtMoney(salary) : '—') + '</td>' +
+      '<td>' + typeLabel + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+        '<button class="header-btn btn-sm btn-outline" onclick=\'openEditTeacher(' + JSON.stringify(t) + ')\'>Sửa</button> ' +
+        '<button class="header-btn btn-sm" style="background:var(--danger);color:#fff" onclick="deleteTeacher(\'' + esc(t.id) + '\')">Xoá</button>' +
+      '</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-400)">Chưa có giáo viên nào</td></tr>';
+  document.getElementById('teacherTbody').innerHTML =
+    '<tr><td colspan="8" style="background:var(--gray-50);font-size:11px;color:var(--gray-600);padding:6px 14px">📅 Số giờ & lương tính cho tháng ' + month + '</td></tr>' + tbody;
+}
+
+function updateTeacherSalaryFields() {
+  var type = document.getElementById('tch_salaryType').value;
+  document.getElementById('tch_hourlyRow').style.display  = type === 'hourly'  ? '' : 'none';
+  document.getElementById('tch_percentRow').style.display = type === 'percent' ? '' : 'none';
+}
+
 function openAddTeacher() {
   document.getElementById('modalTeacherTitle').textContent = 'Thêm giáo viên';
-  ['tch_id','tch_name','tch_subject','tch_phone','tch_email'].forEach(function(id) { document.getElementById(id).value = ''; });
+  ['tch_id','tch_name','tch_subject','tch_phone','tch_email','tch_hourlyRate','tch_revenuePercent'].forEach(function(id) { document.getElementById(id).value = ''; });
+  document.getElementById('tch_status').value     = 'Đang dạy';
+  document.getElementById('tch_salaryType').value = 'hourly';
+  updateTeacherSalaryFields();
   openModal('modalTeacher');
 }
 
 function openEditTeacher(t) {
   document.getElementById('modalTeacherTitle').textContent = 'Sửa giáo viên';
-  document.getElementById('tch_id').value      = t.id;
-  document.getElementById('tch_name').value    = t.name;
-  document.getElementById('tch_phone').value   = t.phone||'';
-  document.getElementById('tch_email').value   = t.email||'';
-  document.getElementById('tch_subject').value = t.subject||'';
-  document.getElementById('tch_status').value  = t.status||'Đang dạy';
+  document.getElementById('tch_id').value             = t.id;
+  document.getElementById('tch_name').value           = t.name;
+  document.getElementById('tch_phone').value          = t.phone||'';
+  document.getElementById('tch_email').value          = t.email||'';
+  document.getElementById('tch_subject').value        = t.subject||'';
+  document.getElementById('tch_status').value         = t.status||'Đang dạy';
+  document.getElementById('tch_salaryType').value     = t.salary_type || 'hourly';
+  document.getElementById('tch_hourlyRate').value     = t.hourly_rate || '';
+  document.getElementById('tch_revenuePercent').value = t.revenue_percent || '';
+  updateTeacherSalaryFields();
   openModal('modalTeacher');
 }
 
@@ -1913,10 +2003,26 @@ function submitTeacher() {
     subject: document.getElementById('tch_subject').value.trim(),
     status : document.getElementById('tch_status').value
   };
+  var salaryData = {
+    id             : d.id,
+    salary_type    : document.getElementById('tch_salaryType').value,
+    hourly_rate    : parseFloat(document.getElementById('tch_hourlyRate').value) || 0,
+    revenue_percent: parseFloat(document.getElementById('tch_revenuePercent').value) || 0
+  };
   google.script.run
     .withSuccessHandler(function(r) {
-      if (r.success) { closeModal('modalTeacher'); loadTeachers(); toast('Đã lưu giáo viên', 'success'); }
-      else toast('Lỗi lưu', 'error');
+      if (r.success) {
+        var tid = d.id || r.id;
+        if (tid) {
+          salaryData.id = tid;
+          google.script.run
+            .withSuccessHandler(function() { closeModal('modalTeacher'); loadTeachers(); toast('Đã lưu giáo viên', 'success'); })
+            .withFailureHandler(function(e) { toast('Lỗi lưu lương: ' + e.message, 'error'); })
+            .saveTeacherSalary(salaryData);
+        } else {
+          closeModal('modalTeacher'); loadTeachers(); toast('Đã lưu giáo viên', 'success');
+        }
+      } else toast('Lỗi lưu', 'error');
     })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .saveTeacher(d);
@@ -2019,6 +2125,84 @@ function initAttendanceView() {
   document.getElementById('att_body').innerHTML = '';
   document.getElementById('att_note').textContent = '';
   ATT_STATE.sessionId = null; ATT_STATE.records = {};
+
+  // Init Chấm công GV tab
+  var teacherOpts = APP.teachers.filter(function(t){ return t.status !== 'Nghỉ dạy'; })
+    .map(function(t) { return '<option value="' + esc(t.id) + '">' + esc(t.name) + '</option>'; }).join('');
+  document.getElementById('ts_teacherId').innerHTML = '<option value="">--</option>' + teacherOpts;
+  document.getElementById('ts_classId').innerHTML   = '<option value="">--</option>' +
+    APP.classes.map(function(c){ return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>'; }).join('');
+  document.getElementById('ts_filterTeacher').innerHTML = '<option value="">Tất cả GV</option>' + teacherOpts;
+  document.getElementById('ts_date').value  = today.toISOString().split('T')[0];
+  var ym = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+  document.getElementById('ts_filterMonth').value = ym;
+  loadTimesheets();
+}
+
+function switchAttTab(tab) {
+  document.getElementById('attTab_students').classList.toggle('active', tab === 'students');
+  document.getElementById('attTab_teachers').classList.toggle('active', tab === 'teachers');
+  document.getElementById('attPanel_students').classList.toggle('active', tab === 'students');
+  document.getElementById('attPanel_teachers').classList.toggle('active', tab === 'teachers');
+  if (tab === 'teachers') loadTimesheets();
+}
+
+function loadTimesheets() {
+  var month = document.getElementById('ts_filterMonth').value;
+  var tid   = document.getElementById('ts_filterTeacher').value;
+  document.getElementById('tsTbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:20px">Đang tải...</td></tr>';
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      var total = rows.reduce(function(a,r){ return a + (r.hours||0); }, 0);
+      document.getElementById('ts_summary').textContent = rows.length + ' buổi · ' + (Math.round(total*100)/100) + ' giờ';
+      document.getElementById('tsTbody').innerHTML = rows.length ? rows.map(function(r) {
+        return '<tr>' +
+          '<td style="font-size:12px">' + esc(r.date) + '</td>' +
+          '<td><strong>' + esc(r.teacherName) + '</strong></td>' +
+          '<td><span class="badge badge-blue">' + esc(r.className) + '</span></td>' +
+          '<td style="font-size:12px">' + esc(r.startTime) + '</td>' +
+          '<td style="font-size:12px">' + esc(r.endTime) + '</td>' +
+          '<td style="font-weight:700;color:var(--primary)">' + r.hours + 'h</td>' +
+          '<td style="font-size:12px;color:var(--gray-600)">' + esc(r.note) + '</td>' +
+          '<td><button class="act-btn del" onclick="confirmDeleteTimesheet(\'' + esc(r.id) + '\')">🗑️</button></td>' +
+        '</tr>';
+      }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:30px">Không có dữ liệu</td></tr>';
+    })
+    .withFailureHandler(function(e){ toast('Lỗi: ' + e.message, 'error'); })
+    .listTimesheets(month, tid);
+}
+
+function submitTimesheet() {
+  var d = {
+    teacherId: document.getElementById('ts_teacherId').value,
+    classId  : document.getElementById('ts_classId').value,
+    date     : document.getElementById('ts_date').value,
+    startTime: document.getElementById('ts_start').value,
+    endTime  : document.getElementById('ts_end').value,
+    note     : document.getElementById('ts_note').value.trim()
+  };
+  if (!d.teacherId) { toast('Chọn giáo viên!', 'error'); return; }
+  if (!d.classId)   { toast('Chọn lớp!', 'error'); return; }
+  if (!d.date)      { toast('Chọn ngày!', 'error'); return; }
+  if (!d.startTime || !d.endTime) { toast('Nhập giờ từ/đến!', 'error'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r.success) {
+        toast('Đã thêm ' + r.hours + 'h ✓', 'success');
+        document.getElementById('ts_note').value = '';
+        loadTimesheets();
+      }
+    })
+    .withFailureHandler(function(e){ toast('Lỗi: ' + e.message, 'error'); })
+    .addTimesheet(d);
+}
+
+function confirmDeleteTimesheet(id) {
+  if (!confirm('Xoá buổi chấm công này?')) return;
+  google.script.run
+    .withSuccessHandler(function(r) { if (r.success) { toast('Đã xoá', 'success'); loadTimesheets(); } })
+    .withFailureHandler(function(e){ toast('Lỗi: ' + e.message, 'error'); })
+    .deleteTimesheet(id);
 }
 
 function loadAttendanceSheet() {
