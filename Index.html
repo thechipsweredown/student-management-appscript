@@ -463,7 +463,7 @@ tr:hover td { background: var(--gray-50); }
           <div class="table-card">
             <table><thead><tr>
               <th>Mã HS</th><th>Họ và tên</th><th>Trạng thái</th>
-              <th>HP/tháng</th><th>Đã đóng</th><th>Nợ</th><th></th>
+              <th>HP cả kỳ</th><th>Đã đóng</th><th>Nợ</th><th></th>
             </tr></thead><tbody id="classDetailTbody"></tbody></table>
           </div>
         </div>
@@ -663,7 +663,7 @@ tr:hover td { background: var(--gray-50); }
         <div class="form-group"><label>Giáo viên</label>
           <select class="form-control" id="cls_teacherId"><option value="">-- Chưa chọn --</option></select>
         </div>
-        <div class="form-group"><label>Học phí / tháng (đ)</label>
+        <div class="form-group"><label>Học phí cả kỳ (đ)</label>
           <input class="form-control" id="cls_tuition" type="number" step="50000" min="0" placeholder="0">
         </div>
         <div class="form-group span2"><label>Môn học / Ghi chú</label>
@@ -1351,7 +1351,7 @@ function openStudentDetail(s) {
       '<thead><tr style="background:var(--gray-50)">' +
         '<th style="padding:7px 10px;text-align:left;font-size:11px">Lớp</th>' +
         '<th style="padding:7px 10px;text-align:left;font-size:11px">Giáo viên</th>' +
-        '<th style="padding:7px 10px;text-align:left;font-size:11px">HP/tháng</th>' +
+        '<th style="padding:7px 10px;text-align:left;font-size:11px">HP cả kỳ</th>' +
         '<th style="padding:7px 10px;text-align:left;font-size:11px">Đã đóng</th>' +
         '<th style="padding:7px 10px;text-align:left;font-size:11px">Nợ</th>' +
       '</tr></thead><tbody>' + classRows + '</tbody></table>' +
@@ -1443,7 +1443,7 @@ function renderClassGrid() {
         '</div>' +
         '<div onclick="openClassDetail(\'' + esc(cname) + '\')" style="text-align:right;flex-shrink:0;cursor:pointer">' +
           '<div style="font-weight:700;font-size:14px">' + c.count + ' <span style="font-size:11px;color:var(--gray-400);font-weight:400">HS</span></div>' +
-          '<div style="font-size:11px;color:var(--gray-600)">' + (c.tuition ? fmtMoney(c.tuition) + '/tháng' : '—') + '</div>' +
+          '<div style="font-size:11px;color:var(--gray-600)">' + (c.tuition ? fmtMoney(c.tuition) + '/kỳ' : '—') + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:2px;flex-shrink:0">' +
           '<button class="act-btn edit" onclick=\'openEditClass(' + JSON.stringify(c) + ',"' + esc(group.name) + '")\' title="Sửa lớp">✏️</button>' +
@@ -1479,7 +1479,7 @@ function openClassDetail(className) {
     students.length + ' học sinh' +
     (cls.teacher  ? ' · ' + cls.teacher  : '') +
     (cls.subject  ? ' · ' + cls.subject  : '') +
-    (cls.tuition  ? ' · ' + fmtMoney(cls.tuition) + '/tháng' : '');
+    (cls.tuition  ? ' · ' + fmtMoney(cls.tuition) + '/kỳ' : '');
   document.getElementById('detailClassPaid').textContent = fmtMoney(cls.paid || 0);
   document.getElementById('detailClassDebt').textContent = fmtMoney(cls.debt || 0);
   document.getElementById('detailClassDebt').style.color = cls.debt > 0 ? 'var(--danger)' : 'var(--gray-400)';
