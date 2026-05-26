@@ -203,6 +203,69 @@ tr:hover td { background: var(--gray-50); }
   .header-btn { padding: 5px 8px; font-size: 11px; }
   .header-btn span { display: none; }
 }
+
+/* ─── Mobile card-view cho bảng Học sinh & Học phí ─── */
+@media (max-width: 640px) {
+  #view-students .table-card > div[style*="overflow-x"],
+  #view-payments .table-card > div[style*="overflow-x"] { overflow-x: visible; }
+  #view-students table, #view-payments table { display: block; }
+  #view-students table thead, #view-payments table thead { display: none; }
+  #view-students table tbody, #view-payments table tbody { display: block; }
+  #view-students table tr, #view-payments table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 10px;
+    row-gap: 4px;
+    align-items: center;
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 8px 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  #view-students table td, #view-payments table td {
+    display: block;
+    padding: 2px 0;
+    border: none;
+    font-size: 12px;
+    min-width: 0;
+  }
+  /* Cột tên (col 2): full width, font lớn, lên đầu, có gạch chân */
+  #view-students table tr td:nth-child(2),
+  #view-payments table tr td:nth-child(2) {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    order: -2;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed var(--gray-100);
+    margin-bottom: 2px;
+  }
+  /* Cột action (cuối): pin về phải, spans nhiều rows */
+  #view-students table tr td:last-child,
+  #view-payments table tr td:last-child {
+    grid-column: 2;
+    grid-row: 2 / span 20;
+    align-self: start;
+    justify-self: end;
+    white-space: nowrap;
+  }
+  /* Empty state */
+  #view-students table tr td[colspan],
+  #view-payments table tr td[colspan] {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--gray-400);
+    padding: 20px 0;
+  }
+  /* Số tiền nổi bật trên payments */
+  #view-payments table tr td:nth-child(5) {
+    font-weight: 700;
+    color: var(--success);
+    font-size: 14px;
+  }
+  .table-pagination { padding: 10px; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+}
 </style>
 </head>
 <body>
