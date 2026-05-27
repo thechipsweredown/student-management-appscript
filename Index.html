@@ -160,6 +160,12 @@ tr:hover td { background: var(--gray-50); }
 .pt-note  { border-top: 1.5px dashed #aaa; padding-top: 10px; margin-top: 10px; font-size: 12px; display: flex; align-items: baseline; gap: 6px; }
 .pt-note-line { flex: 1; border-bottom: 1px dotted #555; height: 1em; }
 #hamburgerBtn { display: none; background: none; border: none; font-size: 22px; cursor: pointer; padding: 0 8px; color: var(--gray-800); }
+
+/* Class group collapsible */
+.class-group-panel .class-group-body { max-height: 9999px; overflow: hidden; transition: max-height .25s ease; }
+.class-group-panel.collapsed .class-group-body { max-height: 0; }
+.class-group-panel .cg-chevron { transform: rotate(0deg); }
+.class-group-panel.collapsed .cg-chevron { transform: rotate(-90deg); }
 #sidebarBackdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 45; }
 #sidebarBackdrop.open { display: block; }
 
@@ -311,6 +317,9 @@ tr:hover td { background: var(--gray-50); }
   #attPanel_teachers table tr td:nth-child(6) { font-weight: 700; color: var(--primary); font-size: 13px; }
 
   .table-pagination { padding: 10px; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+
+  /* Class group grid: stack 1 cột trên mobile */
+  #classGroupGrid { grid-template-columns: 1fr !important; gap: 10px !important; }
 }
 </style>
 </head>
@@ -1582,14 +1591,28 @@ function renderPaymentTable() {
 // ═══════════════════════════════════════════════
 //  CLASSES GRID
 // ═══════════════════════════════════════════════
+// Trạng thái open/closed của từng nhóm lớp (mobile-only collapsible)
+var CLASS_GROUP_OPEN = {};
+
+function toggleClassGroup(idx) {
+  CLASS_GROUP_OPEN[idx] = !CLASS_GROUP_OPEN[idx];
+  var panel = document.getElementById('classGroup_' + idx);
+  if (panel) panel.classList.toggle('collapsed', !CLASS_GROUP_OPEN[idx]);
+}
+
 function renderClassGrid() {
   var classMap = {};
   APP.classes.forEach(function(c) { classMap[c.name] = c; });
   var groups = APP.classGroups.length ? APP.classGroups : [{name: 'Tất cả', classes: APP.classes.map(function(c) { return c.name; })}];
   var groupColors = ['#e07b39', '#4f46e5', '#0d9488', '#e11d48'];
+  var isMobile = window.innerWidth <= 640;
 
   var html = groups.map(function(group, gi) {
     var gc = groupColors[gi % groupColors.length];
+    // Mobile: mặc định đóng, desktop: mở
+    if (CLASS_GROUP_OPEN[gi] === undefined) CLASS_GROUP_OPEN[gi] = !isMobile;
+    var collapsedClass = CLASS_GROUP_OPEN[gi] ? '' : ' collapsed';
+
     var rows = group.classes.map(function(cname, i) {
       var c = classMap[cname] || { name: cname, teacher: '', count: 0, tuition: 0 };
       return '<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--gray-100)">' +
@@ -1608,15 +1631,16 @@ function renderClassGrid() {
         '</div>' +
       '</div>';
     }).join('');
-    return '<div style="background:#fff;border-radius:14px;border:1px solid var(--gray-200);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">' +
-      '<div style="padding:12px 16px;background:' + gc + ';display:flex;align-items:center;gap:8px">' +
+    return '<div id="classGroup_' + gi + '" class="class-group-panel' + collapsedClass + '" style="background:#fff;border-radius:14px;border:1px solid var(--gray-200);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)">' +
+      '<div class="class-group-header" onclick="toggleClassGroup(' + gi + ')" style="padding:12px 16px;background:' + gc + ';display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">' +
+        '<span class="cg-chevron" style="font-size:13px;color:rgba(255,255,255,.85);transition:transform .2s;display:inline-block">▾</span>' +
         '<span style="font-size:15px;font-weight:800;color:#fff">' + esc(group.name) + '</span>' +
         '<span style="font-size:12px;color:rgba(255,255,255,.7);margin-left:auto">' + group.classes.length + ' lớp</span>' +
-        '<button onclick=\'openEditClassGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;padding:3px 8px;cursor:pointer;font-size:12px" title="Đổi tên nhóm">✏️</button>' +
-        '<button onclick=\'confirmDeleteClassGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.15);border:none;border-radius:6px;color:#fff;padding:3px 8px;cursor:pointer;font-size:12px" title="Xoá nhóm">🗑️</button>' +
-        '<button onclick=\'openAddClassInGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.25);border:none;border-radius:6px;color:#fff;padding:3px 10px;cursor:pointer;font-size:13px;font-weight:700" title="Thêm lớp vào nhóm">＋</button>' +
+        '<button onclick=\'event.stopPropagation();openEditClassGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;padding:3px 8px;cursor:pointer;font-size:12px" title="Đổi tên nhóm">✏️</button>' +
+        '<button onclick=\'event.stopPropagation();confirmDeleteClassGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.15);border:none;border-radius:6px;color:#fff;padding:3px 8px;cursor:pointer;font-size:12px" title="Xoá nhóm">🗑️</button>' +
+        '<button onclick=\'event.stopPropagation();openAddClassInGroup("' + esc(group.name) + '")\' style="background:rgba(255,255,255,.25);border:none;border-radius:6px;color:#fff;padding:3px 10px;cursor:pointer;font-size:13px;font-weight:700" title="Thêm lớp vào nhóm">＋</button>' +
       '</div>' +
-      '<div>' + rows + '</div></div>';
+      '<div class="class-group-body">' + rows + '</div></div>';
   }).join('');
   document.getElementById('classGroupGrid').innerHTML = html || '<p style="color:var(--gray-400);padding:20px">Chưa có nhóm lớp nào. Bấm "Thêm nhóm" để bắt đầu.</p>';
 }
