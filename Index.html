@@ -204,14 +204,37 @@ tr:hover td { background: var(--gray-50); }
   .header-btn span { display: none; }
 }
 
-/* ─── Mobile card-view cho bảng Học sinh & Học phí ─── */
+/* ─── Mobile card-view cho các bảng dữ liệu chính ─── */
 @media (max-width: 640px) {
+  /* Bỏ horizontal scroll wrapper, cho card flow tự nhiên */
   #view-students .table-card > div[style*="overflow-x"],
-  #view-payments .table-card > div[style*="overflow-x"] { overflow-x: visible; }
-  #view-students table, #view-payments table { display: block; }
-  #view-students table thead, #view-payments table thead { display: none; }
-  #view-students table tbody, #view-payments table tbody { display: block; }
-  #view-students table tr, #view-payments table tr {
+  #view-payments .table-card > div[style*="overflow-x"],
+  #view-teachers .table-card > div[style*="overflow-x"],
+  #view-parents  .table-card > div[style*="overflow-x"],
+  #view-schedule .table-card > div[style*="overflow-x"],
+  #view-attStats .table-card > div[style*="overflow-x"],
+  #attPanel_teachers .table-card > div[style*="overflow-x"] { overflow-x: visible; }
+
+  /* Áp dụng card layout cho table */
+  #view-students table, #view-payments table,
+  #view-teachers table, #view-parents table,
+  #view-schedule table, #view-attStats table,
+  #attPanel_teachers table { display: block; }
+
+  #view-students table thead, #view-payments table thead,
+  #view-teachers table thead, #view-parents table thead,
+  #view-schedule table thead, #view-attStats table thead,
+  #attPanel_teachers table thead { display: none; }
+
+  #view-students table tbody, #view-payments table tbody,
+  #view-teachers table tbody, #view-parents table tbody,
+  #view-schedule table tbody, #view-attStats table tbody,
+  #attPanel_teachers table tbody { display: block; }
+
+  #view-students table tr, #view-payments table tr,
+  #view-teachers table tr, #view-parents table tr,
+  #view-schedule table tr, #view-attStats table tr,
+  #attPanel_teachers table tr {
     display: grid;
     grid-template-columns: 1fr auto;
     column-gap: 10px;
@@ -224,16 +247,27 @@ tr:hover td { background: var(--gray-50); }
     margin: 8px 10px;
     box-shadow: 0 1px 3px rgba(0,0,0,.04);
   }
-  #view-students table td, #view-payments table td {
+
+  #view-students table td, #view-payments table td,
+  #view-teachers table td, #view-parents table td,
+  #view-schedule table td, #view-attStats table td,
+  #attPanel_teachers table td {
     display: block;
     padding: 2px 0;
     border: none;
     font-size: 12px;
     min-width: 0;
+    text-align: left !important;
   }
-  /* Cột tên (col 2): full width, font lớn, lên đầu, có gạch chân */
+
+  /* Cột tên (col 2): full width, font lớn, lên đầu, gạch chân ngăn */
   #view-students table tr td:nth-child(2),
-  #view-payments table tr td:nth-child(2) {
+  #view-payments table tr td:nth-child(2),
+  #view-teachers table tr td:nth-child(2),
+  #view-parents  table tr td:nth-child(2),
+  #view-schedule table tr td:nth-child(2),
+  #view-attStats table tr td:nth-child(2),
+  #attPanel_teachers table tr td:nth-child(2) {
     grid-column: 1 / -1;
     font-size: 14px;
     order: -2;
@@ -241,29 +275,41 @@ tr:hover td { background: var(--gray-50); }
     border-bottom: 1px dashed var(--gray-100);
     margin-bottom: 2px;
   }
+
   /* Cột action (cuối): pin về phải, spans nhiều rows */
   #view-students table tr td:last-child,
-  #view-payments table tr td:last-child {
+  #view-payments table tr td:last-child,
+  #view-teachers table tr td:last-child,
+  #view-parents  table tr td:last-child,
+  #attPanel_teachers table tr td:last-child {
     grid-column: 2;
     grid-row: 2 / span 20;
     align-self: start;
     justify-self: end;
     white-space: nowrap;
   }
-  /* Empty state */
+
+  /* Empty state row dùng full width */
   #view-students table tr td[colspan],
-  #view-payments table tr td[colspan] {
+  #view-payments table tr td[colspan],
+  #view-teachers table tr td[colspan],
+  #view-parents  table tr td[colspan],
+  #view-schedule table tr td[colspan],
+  #view-attStats table tr td[colspan],
+  #attPanel_teachers table tr td[colspan] {
     grid-column: 1 / -1;
     text-align: center;
     color: var(--gray-400);
     padding: 20px 0;
   }
-  /* Số tiền nổi bật trên payments */
-  #view-payments table tr td:nth-child(5) {
-    font-weight: 700;
-    color: var(--success);
-    font-size: 14px;
-  }
+
+  /* Highlight số tiền & lương */
+  #view-payments table tr td:nth-child(5),
+  #view-teachers table tr td:nth-child(6) { font-weight: 700; color: var(--success); font-size: 14px; }
+  /* Highlight số giờ trên teachers + timesheet */
+  #view-teachers table tr td:nth-child(5),
+  #attPanel_teachers table tr td:nth-child(6) { font-weight: 700; color: var(--primary); font-size: 13px; }
+
   .table-pagination { padding: 10px; flex-wrap: wrap; gap: 6px; font-size: 12px; }
 }
 </style>
