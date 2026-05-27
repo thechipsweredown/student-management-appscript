@@ -244,8 +244,7 @@ tr:hover td { background: var(--gray-50); }
     display: grid;
     grid-template-columns: 1fr auto;
     column-gap: 10px;
-    row-gap: 4px;
-    align-items: center;
+    row-gap: 3px;
     background: #fff;
     border: 1px solid var(--gray-200);
     border-radius: 10px;
@@ -259,14 +258,15 @@ tr:hover td { background: var(--gray-50); }
   #view-schedule table td, #view-attStats table td,
   #attPanel_teachers table td {
     display: block;
-    padding: 2px 0;
+    grid-column: 1;
+    padding: 1px 0;
     border: none;
     font-size: 12px;
     min-width: 0;
     text-align: left !important;
   }
 
-  /* Cột tên (col 2): full width, font lớn, lên đầu, gạch chân ngăn */
+  /* Cột tên (col 2): font lớn, có gạch chân ngăn dưới */
   #view-students table tr td:nth-child(2),
   #view-payments table tr td:nth-child(2),
   #view-teachers table tr td:nth-child(2),
@@ -274,24 +274,27 @@ tr:hover td { background: var(--gray-50); }
   #view-schedule table tr td:nth-child(2),
   #view-attStats table tr td:nth-child(2),
   #attPanel_teachers table tr td:nth-child(2) {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-row: 1;
     font-size: 14px;
-    order: -2;
     padding-bottom: 5px;
     border-bottom: 1px dashed var(--gray-100);
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
 
-  /* Cột action (cuối): pin về phải, spans nhiều rows */
+  /* Cột action (cuối): top-right corner, ko span phantom rows */
   #view-students table tr td:last-child,
   #view-payments table tr td:last-child,
   #view-teachers table tr td:last-child,
   #view-parents  table tr td:last-child,
   #attPanel_teachers table tr td:last-child {
     grid-column: 2;
-    grid-row: 2 / span 20;
-    align-self: start;
+    grid-row: 1;
     justify-self: end;
+    align-self: start;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed var(--gray-100);
+    margin-bottom: 3px;
     white-space: nowrap;
   }
 
@@ -304,17 +307,59 @@ tr:hover td { background: var(--gray-50); }
   #view-attStats table tr td[colspan],
   #attPanel_teachers table tr td[colspan] {
     grid-column: 1 / -1;
+    grid-row: auto;
     text-align: center;
     color: var(--gray-400);
     padding: 20px 0;
+    border: none !important;
   }
 
-  /* Highlight số tiền & lương */
-  #view-payments table tr td:nth-child(5),
+  /* Ẩn các cell rỗng / chỉ chứa dấu — */
+  #view-payments table tr td:empty { display: none; }
+
+  /* ─── Labels (::before) cho từng cell value ─── */
+  /* Students */
+  #view-students table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
+  #view-students table tr td:nth-child(5)::before {
+    content: "Nợ học phí: ";
+    font-weight: 400; color: var(--gray-400); font-size: 11px;
+  }
+
+  /* Payments — labels rõ ràng cho từng giá trị */
+  #view-payments table tr td:nth-child(1)::before { content: "📅 Đóng "; color: var(--gray-400); font-size: 11px; }
+  #view-payments table tr td:nth-child(3)::before { content: "Lớp: ";    color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #view-payments table tr td:nth-child(4)::before { content: "Tháng TT: "; color: var(--gray-400); font-size: 11px; }
+  #view-payments table tr td:nth-child(5)::before { content: "Số tiền: ";  color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #view-payments table tr td:nth-child(6)::before { content: "PT: ";      color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #view-payments table tr td:nth-child(7)::before { content: "Nhân viên: "; color: var(--gray-400); font-size: 11px; }
+  #view-payments table tr td:nth-child(8)::before { content: "Ghi chú: "; color: var(--gray-400); font-size: 11px; }
+  /* Số tiền nổi bật */
+  #view-payments table tr td:nth-child(5) { font-weight: 700; color: var(--success); font-size: 14px; }
+
+  /* Teachers */
+  #view-teachers table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
+  #view-teachers table tr td:nth-child(3)::before { content: "Môn: "; color: var(--gray-400); font-size: 11px; }
+  #view-teachers table tr td:nth-child(4)::before { content: "📞 "; color: var(--gray-400); font-size: 11px; }
+  #view-teachers table tr td:nth-child(5)::before { content: "Giờ dạy: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #view-teachers table tr td:nth-child(5) { font-weight: 700; color: var(--primary); font-size: 13px; }
+  #view-teachers table tr td:nth-child(6)::before { content: "Lương: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
   #view-teachers table tr td:nth-child(6) { font-weight: 700; color: var(--success); font-size: 14px; }
-  /* Highlight số giờ trên teachers + timesheet */
-  #view-teachers table tr td:nth-child(5),
+  #view-teachers table tr td:nth-child(7)::before { content: "Công thức: "; color: var(--gray-400); font-size: 11px; }
+
+  /* Parents */
+  #view-parents table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
+  #view-parents table tr td:nth-child(3)::before { content: "📞 "; color: var(--gray-400); }
+  #view-parents table tr td:nth-child(4)::before { content: "✉️ "; color: var(--gray-400); }
+  #view-parents table tr td:nth-child(5)::before { content: "🏠 "; color: var(--gray-400); }
+
+  /* Timesheet */
+  #attPanel_teachers table tr td:nth-child(1)::before { content: "📅 "; color: var(--gray-400); }
+  #attPanel_teachers table tr td:nth-child(3)::before { content: "Lớp: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #attPanel_teachers table tr td:nth-child(4)::before { content: "Từ: "; color: var(--gray-400); font-size: 11px; }
+  #attPanel_teachers table tr td:nth-child(5)::before { content: "Đến: "; color: var(--gray-400); font-size: 11px; }
+  #attPanel_teachers table tr td:nth-child(6)::before { content: "Số giờ: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
   #attPanel_teachers table tr td:nth-child(6) { font-weight: 700; color: var(--primary); font-size: 13px; }
+  #attPanel_teachers table tr td:nth-child(7):not(:empty)::before { content: "Ghi chú: "; color: var(--gray-400); font-size: 11px; }
 
   .table-pagination { padding: 10px; flex-wrap: wrap; gap: 6px; font-size: 12px; }
 
