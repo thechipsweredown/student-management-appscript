@@ -336,15 +336,21 @@ tr:hover td { background: var(--gray-50); }
   /* Số tiền nổi bật */
   #view-payments table tr td:nth-child(5) { font-weight: 700; color: var(--success); font-size: 14px; }
 
-  /* Teachers */
-  #view-teachers table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
-  #view-teachers table tr td:nth-child(3)::before { content: "Môn: "; color: var(--gray-400); font-size: 11px; }
-  #view-teachers table tr td:nth-child(4)::before { content: "📞 "; color: var(--gray-400); font-size: 11px; }
-  #view-teachers table tr td:nth-child(5)::before { content: "Giờ dạy: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
-  #view-teachers table tr td:nth-child(5) { font-weight: 700; color: var(--primary); font-size: 13px; }
-  #view-teachers table tr td:nth-child(6)::before { content: "Lương: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
-  #view-teachers table tr td:nth-child(6) { font-weight: 700; color: var(--success); font-size: 14px; }
-  #view-teachers table tr td:nth-child(7)::before { content: "Công thức: "; color: var(--gray-400); font-size: 11px; }
+  /* Teachers — Tab Danh sách (cols: ID, name, subject, phone, email, status, action) */
+  #teacherPanel_list table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
+  #teacherPanel_list table tr td:nth-child(3)::before { content: "Môn: "; color: var(--gray-400); font-size: 11px; }
+  #teacherPanel_list table tr td:nth-child(4)::before { content: "📞 "; color: var(--gray-400); font-size: 11px; }
+  #teacherPanel_list table tr td:nth-child(5)::before { content: "✉️ "; color: var(--gray-400); font-size: 11px; }
+
+  /* Teachers — Tab Bảng lương (cols: ID, name, subject, phone, hours, salary, formula, action) */
+  #teacherPanel_salary table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
+  #teacherPanel_salary table tr td:nth-child(3)::before { content: "Môn: "; color: var(--gray-400); font-size: 11px; }
+  #teacherPanel_salary table tr td:nth-child(4)::before { content: "📞 "; color: var(--gray-400); font-size: 11px; }
+  #teacherPanel_salary table tr td:nth-child(5)::before { content: "Giờ dạy: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #teacherPanel_salary table tr td:nth-child(5) { font-weight: 700; color: var(--primary); font-size: 13px; }
+  #teacherPanel_salary table tr td:nth-child(6)::before { content: "Lương: "; color: var(--gray-400); font-size: 11px; font-weight: 400; }
+  #teacherPanel_salary table tr td:nth-child(6) { font-weight: 700; color: var(--success); font-size: 14px; }
+  #teacherPanel_salary table tr td:nth-child(7)::before { content: "Công thức: "; color: var(--gray-400); font-size: 11px; }
 
   /* Parents */
   #view-parents table tr td:nth-child(1) { font-size: 11px; color: var(--gray-400); }
@@ -910,20 +916,47 @@ tr:hover td { background: var(--gray-50); }
 
       <!-- Teachers -->
       <div id="view-teachers" class="view">
-        <div class="table-card">
-          <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
-            <span style="font-size:13px;font-weight:600">Bảng lương theo tháng</span>
-            <input type="month" class="filter-select" id="tch_filterMonth" onchange="loadTeachers()" style="font-weight:700;border-color:var(--primary);color:var(--primary)">
-            <button class="header-btn btn-primary" onclick="openAddTeacher()" style="margin-left:auto">➕ Thêm giáo viên</button>
+        <div class="settings-tabs" style="margin-bottom:14px">
+          <div class="settings-tab active" id="tchTab_list"   onclick="switchTeacherTab('list')">👨‍🏫 Danh sách giáo viên</div>
+          <div class="settings-tab"        id="tchTab_salary" onclick="switchTeacherTab('salary')">💰 Bảng lương</div>
+        </div>
+
+        <!-- Tab 1: Danh sách giáo viên -->
+        <div id="teacherPanel_list" class="settings-panel active">
+          <div class="table-card">
+            <div class="table-toolbar">
+              <span style="font-size:13px;font-weight:600">Tất cả giáo viên</span>
+              <button class="header-btn btn-primary" onclick="openAddTeacher()" style="margin-left:auto">➕ Thêm giáo viên</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table><thead><tr>
+                <th>Mã GV</th><th>Họ và tên</th><th>Môn</th><th>Điện thoại</th><th>Email</th><th>Trạng thái</th><th></th>
+              </tr></thead>
+              <tbody id="teacherListTbody"></tbody></table>
+            </div>
           </div>
-          <div style="overflow-x:auto">
-            <table><thead><tr>
-              <th>Mã GV</th><th>Họ và tên</th><th>Môn</th><th>Điện thoại</th>
-              <th style="text-align:right">Giờ dạy</th>
-              <th style="text-align:right">Lương</th>
-              <th>Công thức</th><th></th>
-            </tr></thead>
-            <tbody id="teacherTbody"></tbody></table>
+        </div>
+
+        <!-- Tab 2: Bảng lương -->
+        <div id="teacherPanel_salary" class="settings-panel">
+          <div class="table-card">
+            <div class="table-toolbar" style="gap:10px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600">Bảng lương theo tháng</span>
+              <input type="month" class="filter-select" id="tch_filterMonth" onchange="loadTeachers()" style="font-weight:700;border-color:var(--primary);color:var(--primary)">
+              <label style="font-size:12px;display:flex;align-items:center;gap:4px;color:var(--gray-600);cursor:pointer">
+                <input type="checkbox" id="tch_showAll" onchange="loadTeachers()"> Hiện cả GV không có chấm công
+              </label>
+              <span id="tch_summary" style="font-size:12px;color:var(--success);font-weight:700;margin-left:auto"></span>
+            </div>
+            <div style="overflow-x:auto">
+              <table><thead><tr>
+                <th>Mã GV</th><th>Họ và tên</th><th>Môn</th><th>Điện thoại</th>
+                <th style="text-align:right">Giờ dạy</th>
+                <th style="text-align:right">Lương</th>
+                <th>Công thức</th><th></th>
+              </tr></thead>
+              <tbody id="teacherTbody"></tbody></table>
+            </div>
           </div>
         </div>
       </div>
@@ -2273,6 +2306,17 @@ function confirmDeleteTerm(id, label) {
 // ═══════════════════════════════════════════════
 //  TEACHERS
 // ═══════════════════════════════════════════════
+var TEACHER_TAB = 'list';
+
+function switchTeacherTab(tab) {
+  TEACHER_TAB = tab;
+  document.getElementById('tchTab_list').classList.toggle('active',   tab === 'list');
+  document.getElementById('tchTab_salary').classList.toggle('active', tab === 'salary');
+  document.getElementById('teacherPanel_list').classList.toggle('active',   tab === 'list');
+  document.getElementById('teacherPanel_salary').classList.toggle('active', tab === 'salary');
+  if (tab === 'salary') loadTeachers();
+}
+
 function loadTeachers() {
   var picker = document.getElementById('tch_filterMonth');
   if (!picker.value) {
@@ -2283,10 +2327,13 @@ function loadTeachers() {
   google.script.run
     .withSuccessHandler(function(list) {
       APP.teachers = list || [];
-      google.script.run
-        .withSuccessHandler(function(stats) { renderTeachersTable(list, stats || {}, month); })
-        .withFailureHandler(function(e) { renderTeachersTable(list, {}, month); })
-        .getTeacherStats(month);
+      renderTeacherList(list);
+      if (TEACHER_TAB === 'salary') {
+        google.script.run
+          .withSuccessHandler(function(stats) { renderSalaryTable(list, stats || {}, month); })
+          .withFailureHandler(function(e) { renderSalaryTable(list, {}, month); })
+          .getTeacherStats(month);
+      }
     })
     .withFailureHandler(function(e) { toast('Lỗi: ' + e.message, 'error'); })
     .getTeachers();
@@ -2298,12 +2345,37 @@ function _fmtShort(n) {
   return String(n);
 }
 
-function renderTeachersTable(list, stats, month) {
+function renderTeacherList(list) {
   var tbody = list.map(function(t) {
+    var statusBadge = t.status === 'Nghỉ'
+      ? '<span class="badge badge-gray">Nghỉ</span>'
+      : '<span class="badge badge-green">Đang dạy</span>';
+    return '<tr>' +
+      '<td style="font-family:monospace;font-size:12px;color:var(--primary)">' + esc(t.id) + '</td>' +
+      '<td><strong>' + esc(t.name) + '</strong></td>' +
+      '<td style="font-size:12px;color:var(--gray-600)">' + esc(t.subject||'—') + '</td>' +
+      '<td style="font-size:12px">' + esc(t.phone||'—') + '</td>' +
+      '<td style="font-size:12px">' + esc(t.email||'—') + '</td>' +
+      '<td>' + statusBadge + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' +
+        '<button class="header-btn btn-sm btn-outline" onclick=\'openEditTeacher(' + JSON.stringify(t) + ')\'>Sửa</button> ' +
+        '<button class="header-btn btn-sm" style="background:var(--danger);color:#fff" onclick="deleteTeacher(\'' + esc(t.id) + '\')">Xoá</button>' +
+      '</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Chưa có giáo viên nào</td></tr>';
+  document.getElementById('teacherListTbody').innerHTML = tbody;
+}
+
+function renderSalaryTable(list, stats, month) {
+  var showAll = document.getElementById('tch_showAll').checked;
+  // Lọc: mặc định chỉ show GV có giờ dạy trong tháng (có bản ghi chấm công)
+  var filtered = showAll ? list : list.filter(function(t) {
+    var st = stats[t.id]; return st && st.hours > 0;
+  });
+
+  var tbody = filtered.map(function(t) {
     var st = stats[t.id] || { hours: 0, salaryHourly: 0, salaryPercent: 0, revenue: 0, salaryType: t.salary_type||'hourly' };
     var isPct = st.salaryType === 'percent';
     var salary = isPct ? st.salaryPercent : st.salaryHourly;
-    // Công thức cụ thể
     var formula = isPct
       ? '<span class="badge badge-blue">' + (t.revenue_percent||0) + '% × ' + _fmtShort(st.revenue||0) + '</span>'
       : '<span class="badge badge-gray">' + (st.hours||0) + 'h × ' + _fmtShort(t.hourly_rate||0) + '</span>';
@@ -2316,17 +2388,17 @@ function renderTeachersTable(list, stats, month) {
       '<td style="text-align:right;font-weight:700;color:var(--success)">' + (salary > 0 ? fmtMoney(salary) : '—') + '</td>' +
       '<td>' + formula + '</td>' +
       '<td style="text-align:right;white-space:nowrap">' +
-        '<button class="header-btn btn-sm btn-outline" onclick=\'openEditTeacher(' + JSON.stringify(t) + ')\'>Sửa</button> ' +
-        '<button class="header-btn btn-sm" style="background:var(--danger);color:#fff" onclick="deleteTeacher(\'' + esc(t.id) + '\')">Xoá</button>' +
+        '<button class="header-btn btn-sm btn-outline" onclick=\'openEditTeacher(' + JSON.stringify(t) + ')\'>Sửa</button>' +
       '</td></tr>';
-  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-400)">Chưa có giáo viên nào</td></tr>';
-  var monthLabel = month ? month.replace(/^(\d{4})-(\d{2})$/, 'tháng $2/$1') : '';
-  var totalSalary = list.reduce(function(a, t) {
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-400)">Không có giáo viên nào có chấm công trong tháng này</td></tr>';
+
+  var totalSalary = filtered.reduce(function(a, t) {
     var st = stats[t.id]; if (!st) return a;
     return a + (st.salaryType === 'percent' ? st.salaryPercent : st.salaryHourly);
   }, 0);
-  document.getElementById('teacherTbody').innerHTML =
-    '<tr><td colspan="8" style="background:var(--gray-50);font-size:11px;color:var(--gray-600);padding:8px 14px">📅 Số giờ & lương ' + esc(monthLabel) + ' · Tổng quỹ lương <strong style="color:var(--success)">' + fmtMoney(totalSalary) + '</strong></td></tr>' + tbody;
+  var monthLabel = month ? month.replace(/^(\d{4})-(\d{2})$/, 'tháng $2/$1') : '';
+  document.getElementById('tch_summary').textContent = filtered.length + ' GV · Quỹ lương ' + monthLabel + ': ' + fmtMoney(totalSalary);
+  document.getElementById('teacherTbody').innerHTML = tbody;
 }
 
 function updateTeacherSalaryFields() {
