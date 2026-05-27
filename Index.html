@@ -320,6 +320,128 @@ tr:hover td { background: var(--gray-50); }
 
   /* Class group grid: stack 1 cột trên mobile */
   #classGroupGrid { grid-template-columns: 1fr !important; gap: 10px !important; }
+
+  /* ─── Class detail (HS trong lớp) → card view per student ─── */
+  #classDetailView .table-card { background: transparent; border: none; box-shadow: none; }
+  #classDetailView table { display: block; }
+  #classDetailView table thead { display: none; }
+  #classDetailView table tbody { display: block; }
+  #classDetailView table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name    status"
+      "input   paid"
+      "input   debt"
+      "id      delete";
+    column-gap: 12px;
+    row-gap: 3px;
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 8px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  #classDetailView table td {
+    display: block;
+    padding: 0;
+    border: none;
+    min-width: 0;
+  }
+  /* Empty state row spans full */
+  #classDetailView table tr td[colspan] {
+    grid-area: name / status;
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--gray-400);
+    padding: 24px 0;
+  }
+  /* col 1: mã HS — góc dưới trái, có gạch ngăn phía trên */
+  #classDetailView table tr td:nth-child(1) {
+    grid-area: id;
+    padding-top: 6px;
+    border-top: 1px dashed var(--gray-100);
+    align-self: end;
+    font-size: 11px;
+  }
+  /* col 2: avatar + tên — top, có gạch ngăn dưới */
+  #classDetailView table tr td:nth-child(2) {
+    grid-area: name;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--gray-100);
+    font-size: 14px;
+  }
+  /* col 3: status badge — góc phải trên */
+  #classDetailView table tr td:nth-child(3) {
+    grid-area: status;
+    justify-self: end;
+    align-self: center;
+    padding-bottom: 8px;
+  }
+  /* col 4: input HP — chiếm cột trái, có label */
+  #classDetailView table tr td:nth-child(4) {
+    grid-area: input;
+    padding-top: 4px;
+    align-self: start;
+  }
+  #classDetailView table tr td:nth-child(4)::before {
+    content: 'Học phí kỳ này';
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+  }
+  #classDetailView table tr td:nth-child(4) > div { gap: 6px !important; }
+  #classDetailView table tr td:nth-child(4) input[type="number"] {
+    width: auto !important;
+    flex: 1;
+    padding: 8px 10px !important;
+    font-size: 14px !important;
+    text-align: left !important;
+    border-color: var(--primary) !important;
+  }
+  #classDetailView table tr td:nth-child(4) button {
+    background: var(--primary); color: #fff; padding: 8px 12px !important; border-radius: 8px;
+  }
+  /* col 5: paid */
+  #classDetailView table tr td:nth-child(5) {
+    grid-area: paid;
+    text-align: right;
+    align-self: start;
+    padding-top: 6px;
+    font-size: 14px;
+  }
+  #classDetailView table tr td:nth-child(5)::before {
+    content: 'Đã đóng';
+    display: block;
+    font-size: 9px;
+    color: var(--gray-400);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  /* col 6: debt or "—" */
+  #classDetailView table tr td:nth-child(6) {
+    grid-area: debt;
+    text-align: right;
+    font-size: 11px;
+    align-self: start;
+  }
+  /* col 7: delete */
+  #classDetailView table tr td:nth-child(7) {
+    grid-area: delete;
+    justify-self: end;
+    align-self: end;
+    padding-top: 6px;
+  }
+
+  /* Header toolbar gọn lại, paid/debt summary cards = full width 2 chip */
+  #classDetailView > div:nth-child(2) { gap: 8px !important; }
+  #classDetailView > div:nth-child(2) > div { flex: 1; padding: 10px 14px !important; }
 }
 </style>
 </head>
